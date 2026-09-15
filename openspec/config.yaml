@@ -1,0 +1,78 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: true
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
+
+# Project context (optional)
+context: |
+  Projeto acadêmico: Pulse — aplicativo web de acompanhamento fitness e bem-estar.
+
+  Tech stack: Reflex (framework Python para front-end e back-end), Python, SQL (banco de dados relacional).
+  Como o Reflex compila componentes Python em front-end, todo o código (UI, lógica de negócio e acesso ao banco) fica em Python — evitar sugerir bibliotecas JS/React desnecessárias.
+
+  Domínio: o Pulse centraliza dados da rotina do usuário (perfil, objetivos, treinos/exercícios,
+  refeições, sono e peso) em um único sistema, permitindo acompanhar a evolução
+  de forma integrada. Usa IA como recurso de análise para gerar insights e sugestões a partir dos
+  dados registrados pelo usuário.
+
+  Entidades principais prováveis: Usuário, Perfil/Objetivos, Treino/Exercício, Refeição, RegistroDeSono e
+  RegistroDePeso.
+
+  ## Convenção de nomenclatura
+- Variáveis em português (ex: `peso_usuario`, `treino_atual`)
+- Funções em inglês (ex: `get_user_weight`, `calculate_progress`)
+- Comentários e mensagens de commit em português
+- Entidades e campos de domínio seguem o `domain-model.md`.
+
+# Per-artifact rules (optional)
+rules:
+  proposal:
+    - Escrever em português
+    - Incluir seção "Objetivo" e "Escopo"
+  spec:
+    - Incluir critérios de aceite testáveis
+    - Especificar os modelos/tabelas SQL envolvidos, quando aplicável
+    - Ao lidar com dados de saúde/fitness do usuário, considerar privacidade e integridade dos dados no critério de aceite
+  tasks:
+    - Dividir tarefas em blocos de no máximo 2h
+    - Separar tarefas de front-end (componentes Reflex) e back-end (lógica/queries SQL)
+
+# Per-operation guidance (optional)
+operations:
+  apply:
+    guidance:
+      - Rodar testes antes de marcar tarefa como concluída
+      - Verificar migrações de banco de dados antes de aplicar mudanças de schema
+  archive:
+    guidance:
+      - Resumir o que foi implementado e arquivar
