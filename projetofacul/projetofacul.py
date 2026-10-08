@@ -8,6 +8,8 @@ import reflex as rx
 
 from rxconfig import config
 
+from projetofacul.landing_page import landing_page, login
+
 
 class PerfilState(rx.State):
     """State para o cadastro inicial do perfil do usuário."""
@@ -95,7 +97,12 @@ def field_label(text: str) -> rx.Component:
     return rx.text(text, size="3", weight="medium", color="gray")
 
 
-def index() -> rx.Component:
+def home() -> rx.Component:
+    """Retorna a empresa de landing page pública do Pulse."""
+    return landing_page()
+
+
+def cadastro() -> rx.Component:
     return rx.container(
         rx.color_mode.button(position="top-right"),
         rx.center(
@@ -301,5 +308,5 @@ def index() -> rx.Component:
 
 
 app = rx.App()
-app.add_page(index, route="/")
-app.add_page(index, route="/cadastro")
+app.add_page(home, route="/")
+app.add_page(cadastro, route="/cadastro")
