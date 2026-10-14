@@ -6,9 +6,8 @@ from urllib import request
 
 import reflex as rx
 
-from rxconfig import config
-
-from projetofacul.landing_page import landing_page, login
+from projetofacul.auth_page import AuthState, pagina_autenticacao
+from projetofacul.landing_page import landing_page
 
 
 class PerfilState(rx.State):
@@ -102,7 +101,7 @@ def home() -> rx.Component:
     return landing_page()
 
 
-def cadastro() -> rx.Component:
+def onboarding_page() -> rx.Component:
     return rx.container(
         rx.color_mode.button(position="top-right"),
         rx.center(
@@ -309,4 +308,6 @@ def cadastro() -> rx.Component:
 
 app = rx.App()
 app.add_page(home, route="/")
-app.add_page(cadastro, route="/cadastro")
+app.add_page(pagina_autenticacao, route="/login", on_load=AuthState.inicializar_login)
+app.add_page(pagina_autenticacao, route="/cadastro", on_load=AuthState.inicializar_cadastro)
+app.add_page(onboarding_page, route="/onboarding")

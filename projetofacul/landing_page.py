@@ -12,6 +12,51 @@ NAV_ITEMS = [
     ("FAQ", "#faq"),
 ]
 
+PERGUNTAS_FREQUENTES = (
+    ("O Pulse é grátis?", "Sim. Você cria sua conta e usa todos os registros e relatórios sem custo."),
+    ("Meus dados são privados?", "Sim. Cada usuário acessa somente os próprios dados: seus registros ficam salvos na sua conta e visíveis só para você."),
+    (
+        "Preciso pesar a comida para registrar refeições?",
+        'Não. Descreva a refeição em texto — por exemplo "2 ovos, pão integral e café" — e a IA estima calorias e macros. Se souber as quantidades exatas, a estimativa fica ainda melhor.',
+    ),
+    ("Funciona no celular?", "Sim. O app é responsivo e feito para uso rápido no celular, direto do navegador."),
+    ("O Pulse substitui orientação profissional?", "Não. As sugestões são geradas por IA como apoio e não substituem médico, nutricionista ou personal trainer."),
+)
+
+
+class FaqState(rx.State):
+    """Controla qual resposta do FAQ está aberta."""
+
+    faq_aberto: int = -1
+
+    @rx.event
+    def toggle_faq(self, indice: int):
+        self.faq_aberto = -1 if self.faq_aberto == indice else indice
+
+
+def section_container(
+    conteudo: rx.Component,
+    largura_maxima: str = "1200px",
+    padding_vertical: str | list[str] = THEME.SPACING["section_y"],
+    padding_lateral: list[str] | None = None,
+    classe: str = "",
+) -> rx.Component:
+    """Centraliza o conteúdo dentro do fundo de largura total da seção."""
+    return rx.box(
+        conteudo,
+        width="100%",
+        max_width=largura_maxima,
+        margin_x="auto",
+        padding_x=padding_lateral or ["20px", "28px", "40px"],
+        padding_y=padding_vertical,
+        display="flex",
+        flex_direction="column",
+        align_items="center",
+        text_align="center",
+        position="relative",
+        class_name=classe,
+    )
+
 
 def icon_square(icon_name: str, color: str = THEME.COLORS["primary"]) -> rx.Component:
     """Cria um ícone de funcionalidade com fundo azul translúcido."""
@@ -114,27 +159,52 @@ def audience_item(icon_name: str, label: str) -> rx.Component:
     )
 
 
-def faq_item(question: str, answer: str, value: str) -> rx.Component:
-    """Cria uma pergunta do FAQ com resposta expansível."""
-    return rx.accordion.item(
-        rx.accordion.header(
-            rx.hstack(
-                rx.text(question, font_weight="600", color=THEME.COLORS["text_primary"]),
-                rx.icon(tag="chevron-down", size=18, color=THEME.COLORS["text_secondary"]),
-                justify="between",
-                width="100%",
-                align="center",
+def faq_item(pergunta: str, resposta: str, indice: int) -> rx.Component:
+    """Cria uma pergunta nativa com resposta expansível e acessível."""
+    resposta_aberta = FaqState.faq_aberto == indice
+    pergunta_id = f"faq-question-{indice}"
+    resposta_id = f"faq-answer-{indice}"
+
+    return rx.box(
+        rx.el.button(
+            rx.text(pergunta, class_name="landing-faq-question-text"),
+            rx.icon(
+                tag="chevron-down",
+                size=18,
+                color=THEME.COLORS["text_secondary"],
+                class_name="landing-faq-icon",
             ),
-            class_name="landing-faq-header",
-            aria_label=question,
-            aria_controls=f"faq-answer-{value}",
+            id=pergunta_id,
+            type="button",
+            aria_expanded=resposta_aberta,
+            aria_controls=resposta_id,
+            on_click=FaqState.toggle_faq(indice),
+            class_name="landing-faq-question",
         ),
-        rx.accordion.content(
-            rx.text(answer, color=THEME.COLORS["text_secondary"], line_height="1.75", padding_bottom="8px"),
-            class_name="landing-faq-content",
-            id=f"faq-answer-{value}",
+        rx.box(
+            rx.box(
+                rx.text(
+                    resposta,
+                    color=THEME.COLORS["text_secondary"],
+                    font_weight="400",
+                    line_height="1.75",
+                    padding_bottom="20px",
+                ),
+                overflow="hidden",
+                min_height="0",
+                class_name="landing-faq-answer-inner",
+            ),
+            id=resposta_id,
+            role="region",
+            aria_labelledby=pergunta_id,
+            aria_hidden=FaqState.faq_aberto != indice,
+            class_name=rx.cond(
+                resposta_aberta,
+                "landing-faq-answer is-open",
+                "landing-faq-answer",
+            ),
         ),
-        value=value,
+        border_bottom="1px solid rgba(255, 255, 255, 0.08)",
         class_name="landing-faq-item",
     )
 
@@ -166,7 +236,7 @@ def landing_page() -> rx.Component:
         rx.box(
             rx.container(
                 rx.hstack(
-                    rx.box(
+                    rx.hstack(
                         rx.box(
                             rx.icon(tag="activity", size=18, color=THEME.COLORS["text_primary"]),
                             width="36px",
@@ -179,7 +249,8 @@ def landing_page() -> rx.Component:
                             box_shadow="0 8px 18px rgba(43, 140, 255, 0.24)",
                         ),
                         rx.text("Pulse", font_weight="800", font_size="20px", color=THEME.COLORS["text_primary"]),
-                        gap="12px",
+                        gap="10px",
+                        align="center",
                     ),
                     rx.hstack(
                         *[
@@ -214,7 +285,7 @@ def landing_page() -> rx.Component:
             width="100%",
         ),
         rx.box(
-            rx.container(
+            section_container(
                 rx.vstack(
                     rx.box(
                         "PARA QUEM TREINA E QUER RESULTADO",
@@ -229,11 +300,12 @@ def landing_page() -> rx.Component:
                     ),
                     rx.heading(
                         "Treino, alimentação, sono e peso — monitorados com inteligência artificial.",
-                        size="9",
+                        font_size="clamp(2.25rem, 6vw, 4.5rem)",
                         margin_y="18px",
-                        line_height="1.05",
-                        letter_spacing="-0.065em",
-                        max_width="780px",
+                        line_height="1.1",
+                        letter_spacing="-0.02em",
+                        max_width="900px",
+                        margin_x="auto",
                         class_name="landing-hero-title",
                     ),
                     rx.text(
@@ -242,11 +314,13 @@ def landing_page() -> rx.Component:
                         font_size="20px",
                         max_width="700px",
                         line_height="1.7",
+                        margin_bottom="32px",
                     ),
                     rx.hstack(
                         primary_button("Criar minha conta grátis", "/cadastro", "auto"),
                         secondary_button("Já tenho conta", "/login", "auto"),
                         gap="12px",
+                        margin_bottom="0",
                         class_name="landing-hero-actions",
                         wrap="wrap",
                     ),
@@ -254,23 +328,21 @@ def landing_page() -> rx.Component:
                         "Sem cartão de crédito. Seus registros ficam salvos na sua conta e visíveis só para você.",
                         color="#7E93B2",
                         font_size="13px",
-                        margin_top="12px",
+                        margin_top="16px",
                     ),
                     align="center",
                     spacing="0",
                     width="100%",
                 ),
-                max_width="1200px",
-                padding_y=["72px", "96px", "120px"],
-                padding_x=["20px", "30px", "40px"],
-                text_align="center",
-                position="relative",
+                largura_maxima="1200px",
+                padding_vertical=["72px", "96px", "120px"],
+                padding_lateral=["20px", "30px", "40px"],
             ),
             class_name="landing-hero",
             width="100%",
         ),
         rx.box(
-            rx.container(
+            section_container(
                 rx.vstack(
                     rx.box(
                         rx.text("Como funciona", color=THEME.COLORS["primary"], font_size="13px", font_weight="700", letter_spacing="0.12em", text_transform="uppercase"),
@@ -289,16 +361,17 @@ def landing_page() -> rx.Component:
                     spacing="7",
                     width="100%",
                 ),
-                max_width=THEME.SPACING["container"],
-                padding_x=["20px", "28px"],
-                padding_y=THEME.SPACING["section_y"],
-                class_name="landing-section",
+                largura_maxima=THEME.SPACING["container"],
+                padding_lateral=["20px", "28px"],
+                padding_vertical=THEME.SPACING["section_y"],
+                classe="landing-section",
             ),
             id="como-funciona",
             background_color="rgba(255,255,255,0.01)",
+            width="100%",
         ),
         rx.box(
-            rx.container(
+            section_container(
                 rx.vstack(
                     rx.box(
                         rx.text("Tudo em um só app", color=THEME.COLORS["primary"], font_size="13px", font_weight="700", letter_spacing="0.12em", text_transform="uppercase"),
@@ -321,16 +394,17 @@ def landing_page() -> rx.Component:
                     spacing="7",
                     width="100%",
                 ),
-                max_width=THEME.SPACING["container"],
-                padding_x=["20px", "28px"],
-                padding_y=THEME.SPACING["section_y"],
-                class_name="landing-section",
+                largura_maxima=THEME.SPACING["container"],
+                padding_lateral=["20px", "28px"],
+                padding_vertical=THEME.SPACING["section_y"],
+                classe="landing-section",
             ),
             id="recursos",
             background_color="rgba(255,255,255,0.015)",
+            width="100%",
         ),
         rx.box(
-            rx.container(
+            section_container(
                 rx.vstack(
                     rx.box(
                         rx.text("Para quem é o Pulse", color=THEME.COLORS["primary"], font_size="13px", font_weight="700", letter_spacing="0.12em", text_transform="uppercase"),
@@ -349,44 +423,45 @@ def landing_page() -> rx.Component:
                     spacing="7",
                     width="100%",
                 ),
-                max_width=THEME.SPACING["container"],
-                padding_x=["20px", "28px"],
-                padding_y=THEME.SPACING["section_y"],
-                class_name="landing-section",
+                largura_maxima=THEME.SPACING["container"],
+                padding_lateral=["20px", "28px"],
+                padding_vertical=THEME.SPACING["section_y"],
+                classe="landing-section",
             ),
             id="para-quem-e",
+            width="100%",
         ),
         rx.box(
-            rx.container(
+            section_container(
                 rx.vstack(
                     rx.box(
                         rx.text("Perguntas frequentes", color=THEME.COLORS["primary"], font_size="13px", font_weight="700", letter_spacing="0.12em", text_transform="uppercase"),
                         rx.heading("Tudo que você precisa saber", size="7", margin_top="10px", margin_bottom="0"),
                         text_align="center",
                     ),
-                    rx.accordion.root(
-                        faq_item("O Pulse é grátis?", "Sim. Você cria sua conta e usa todos os registros e relatórios sem custo.", "gratis"),
-                        faq_item("Meus dados são privados?", "Sim. Cada usuário acessa somente os próprios dados: seus registros ficam salvos na sua conta e visíveis só para você.", "privacidade"),
-                        faq_item("Preciso pesar a comida para registrar refeições?", "Não. Descreva a refeição em texto — por exemplo \"2 ovos, pão integral e café\" — e a IA estima calorias e macros. Se souber as quantidades exatas, a estimativa fica ainda melhor.", "refeicoes"),
-                        faq_item("Funciona no celular?", "Sim. O app é responsivo e feito para uso rápido no celular, direto do navegador.", "celular"),
-                        faq_item("O Pulse substitui orientação profissional?", "Não. As sugestões são geradas por IA como apoio e não substituem médico, nutricionista ou personal trainer.", "profissional"),
-                        type_="single",
-                        collapsible=True,
+                    rx.box(
+                        *[
+                            faq_item(pergunta, resposta, indice)
+                            for indice, (pergunta, resposta) in enumerate(PERGUNTAS_FREQUENTES)
+                        ],
                         width="100%",
+                        max_width="800px",
+                        margin_x="auto",
                         class_name="landing-faq",
                     ),
                     spacing="7",
                     width="100%",
                 ),
-                max_width=THEME.SPACING["container"],
-                padding_x=["20px", "28px"],
-                padding_y=THEME.SPACING["section_y"],
-                class_name="landing-section landing-faq-section",
+                largura_maxima=THEME.SPACING["container"],
+                padding_lateral=["20px", "28px"],
+                padding_vertical=THEME.SPACING["section_y"],
+                classe="landing-section landing-faq-section",
             ),
             id="faq",
+            width="100%",
         ),
         rx.box(
-            rx.container(
+            section_container(
                 rx.hstack(
                     rx.vstack(
                         rx.heading("Comece hoje o seu histórico", size="7", color=THEME.COLORS["text_primary"], margin_bottom="12px"),
@@ -401,10 +476,10 @@ def landing_page() -> rx.Component:
                     wrap="wrap",
                     gap="24px",
                 ),
-                max_width=THEME.SPACING["container"],
-                padding_x=["24px", "30px"],
-                padding_y="32px",
-                class_name="landing-cta",
+                largura_maxima=THEME.SPACING["container"],
+                padding_lateral=["24px", "30px"],
+                padding_vertical="32px",
+                classe="landing-cta",
             ),
             background=THEME.COLORS["hero_end"],
             border_top="1px solid rgba(255,255,255,0.08)",
@@ -437,23 +512,3 @@ def landing_page() -> rx.Component:
     )
 
 
-def login() -> rx.Component:
-    """Placeholder da página de login, sem alterar os fluxos de autenticação do Xano."""
-    return rx.container(
-        rx.box(
-            rx.heading("Login", size="8", margin_bottom="10px"),
-            rx.text("A autenticação será implementada futuramente.", color=THEME.COLORS["text_secondary"]),
-            rx.link("Voltar para a home", href="/", margin_top="24px"),
-            max_width="520px",
-            padding="48px",
-            border="1px solid " + THEME.COLORS["border"],
-            border_radius=THEME.RADIUS["xl"],
-            background_color=THEME.COLORS["surface"],
-            box_shadow=THEME.SHADOWS["card"],
-        ),
-        min_height="100vh",
-        display="flex",
-        align_items="center",
-        justify_content="center",
-        padding_y="40px",
-    )

@@ -1,14 +1,18 @@
 import reflex as rx
 
-from projetofacul.projetofacul import app, cadastro, home, login
+from projetofacul.projetofacul import app, home, onboarding_page
+from projetofacul.auth_page import pagina_autenticacao
+from projetofacul.landing_page import FaqState, PERGUNTAS_FREQUENTES, faq_item
+from styles.theme import LANDING_PAGE_CSS
 
 
 def test_rota_raiz_exibe_home_publica():
     routes = {page.route: page.component for page in app.pages}
 
     assert routes["/"] is home
-    assert routes["/cadastro"] is cadastro
-    assert routes["/login"] is login
+    assert routes["/cadastro"] is pagina_autenticacao
+    assert routes["/login"] is pagina_autenticacao
+    assert routes["/onboarding"] is onboarding_page
 
 
 def test_home_possui_novas_secoes_publicas():
@@ -37,29 +41,31 @@ def test_home_possui_cabecalho_ordenado():
 
 
 def test_faq_possui_textos_e_estados_acessiveis():
-    component = home()
-    component_text = str(component)
+    assert PERGUNTAS_FREQUENTES == (
+        ("O Pulse é grátis?", "Sim. Você cria sua conta e usa todos os registros e relatórios sem custo."),
+        ("Meus dados são privados?", "Sim. Cada usuário acessa somente os próprios dados: seus registros ficam salvos na sua conta e visíveis só para você."),
+        (
+            "Preciso pesar a comida para registrar refeições?",
+            'Não. Descreva a refeição em texto — por exemplo "2 ovos, pão integral e café" — e a IA estima calorias e macros. Se souber as quantidades exatas, a estimativa fica ainda melhor.',
+        ),
+        ("Funciona no celular?", "Sim. O app é responsivo e feito para uso rápido no celular, direto do navegador."),
+        ("O Pulse substitui orientação profissional?", "Não. As sugestões são geradas por IA como apoio e não substituem médico, nutricionista ou personal trainer."),
+    )
 
-    assert "O Pulse é grátis?" in component_text
-    assert "Sim. Você cria sua conta e usa todos os registros e relatórios sem custo." in component_text
-    assert "Meus dados são privados?" in component_text
-    assert "Sim. Cada usuário acessa somente os próprios dados: seus registros ficam salvos na sua conta e visíveis só para você." in component_text
-    assert "Preciso pesar a comida para registrar refeições?" in component_text
-    assert 'Não. Descreva a refeição em texto — por exemplo "2 ovos, pão integral e café" — e a IA estima calorias e macros. Se souber as quantidades exatas, a estimativa fica ainda melhor.' in component_text
-    assert "Funciona no celular?" in component_text
-    assert "Sim. O app é responsivo e feito para uso rápido no celular, direto do navegador." in component_text
-    assert "O Pulse substitui orientação profissional?" in component_text
-    assert "Não. As sugestões são geradas por IA como apoio e não substituem médico, nutricionista ou personal trainer." in component_text
-    assert 'aria-expanded' in component_text
-    assert 'aria-controls' in component_text
-    assert 'type_="single"' in component_text
-    assert 'collapsible=True' in component_text
+    item = faq_item(*PERGUNTAS_FREQUENTES[0], 0)
+    button, answer = item.children
+
+    assert button.type._var_value == "button"
+    assert button.id == "faq-question-0"
+    assert "aria-expanded" in button.custom_attrs
+    assert button.custom_attrs["aria-controls"] == "faq-answer-0"
+    assert answer.id == "faq-answer-0"
+    assert answer.role._var_value == "region"
+    assert answer.custom_attrs["aria-labelledby"] == "faq-question-0"
+    assert button.event_triggers["on_click"].events[0].handler.fn.__name__ == "toggle_faq"
 
 
 def test_css_define_breakpoints_e_areas_minimais():
-    component = home()
-    component_text = str(component)
-
-    assert "@media (max-width: 768px)" in component_text
-    assert "@media (min-width: 768px)" in component_text
-    assert "min-height: 44px" in component_text
+    assert "@media (max-width: 768px)" in LANDING_PAGE_CSS
+    assert "@media (min-width: 768px)" not in LANDING_PAGE_CSS
+    assert "min-height: 44px" in LANDING_PAGE_CSS
