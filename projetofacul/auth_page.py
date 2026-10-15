@@ -178,7 +178,7 @@ html, body, #root { min-height: 100%; margin: 0; }
   outline: 3px solid rgba(43,140,255,.65); outline-offset: 3px;
 }
 .auth-form { display: grid; gap: 16px; }
-.auth-field { display: grid; gap: 8px; min-width: 0; }
+.auth-field { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
 .auth-label-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .auth-label { color: #E8EEF8; font-size: 13px; font-weight: 650; }
 .auth-forgot { min-height: 44px; padding: 0; border: 0; background: transparent; color: #8EBEFF; font: inherit; font-size: 12px; cursor: pointer; }
@@ -203,10 +203,11 @@ html, body, #root { min-height: 100%; margin: 0; }
 .auth-global-error { margin: 0; padding: 11px 12px; border: 1px solid rgba(240,161,169,.24); border-radius: 8px; color: #F2B1B7; background: rgba(130,35,48,.15); font-size: 13px; line-height: 1.5; }
 .auth-expanding { display: grid; grid-template-rows: 0fr; opacity: 0; overflow: hidden; transition: grid-template-rows 200ms ease, opacity 200ms ease; }
 .auth-expanding.is-open { grid-template-rows: 1fr; opacity: 1; }
+.auth-expanding-last .auth-field { margin-top: 16px; }
 .auth-expanding-inner { min-height: 0; overflow: hidden; display: grid; gap: 16px; }
 .auth-button {
   min-height: 48px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px;
-  margin-top: 2px; border: 0; border-radius: 10px; color: __TEXT__; background: __PRIMARY__;
+  margin-top: 24px; border: 0; border-radius: 10px; color: __TEXT__; background: __PRIMARY__;
   box-shadow: 0 10px 26px rgba(43,140,255,.18); font: inherit; font-size: 14px; font-weight: 750; cursor: pointer;
   transition: transform 170ms ease, box-shadow 170ms ease, background 170ms ease, opacity 170ms ease;
 }
@@ -438,19 +439,6 @@ def pagina_autenticacao() -> rx.Component:
                                             ),
                                             AuthState.erro_nome,
                                         ),
-                                        auth_field(
-                                            "Confirmar senha",
-                                            "auth-confirm-password",
-                                            password_input(
-                                                "confirmacao",
-                                                "auth-confirm-password",
-                                                AuthState.confirmar_senha,
-                                                AuthState.mostrar_confirmacao,
-                                                "new-password",
-                                                AuthState.modo != "cadastro",
-                                            ),
-                                            AuthState.erro_confirmacao,
-                                        ),
                                         class_name="auth-expanding-inner",
                                     ),
                                     class_name=rx.cond(
@@ -521,6 +509,30 @@ def pagina_autenticacao() -> rx.Component:
                                 ),
                                 class_name="auth-form",
                                 width="100%",
+                            ),
+                            rx.box(
+                                rx.box(
+                                    auth_field(
+                                        "Confirmar senha",
+                                        "auth-confirm-password",
+                                        password_input(
+                                            "confirmacao",
+                                            "auth-confirm-password",
+                                            AuthState.confirmar_senha,
+                                            AuthState.mostrar_confirmacao,
+                                            "new-password",
+                                            AuthState.modo != "cadastro",
+                                        ),
+                                        AuthState.erro_confirmacao,
+                                    ),
+                                    class_name="auth-expanding-inner",
+                                ),
+                                class_name=rx.cond(
+                                    AuthState.modo == "cadastro",
+                                    "auth-expanding auth-expanding-last is-open",
+                                    "auth-expanding auth-expanding-last",
+                                ),
+                                aria_hidden=AuthState.modo != "cadastro",
                             ),
                             rx.cond(
                                 AuthState.erro_geral != "",
