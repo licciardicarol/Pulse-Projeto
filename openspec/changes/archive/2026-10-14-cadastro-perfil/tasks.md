@@ -19,3 +19,5 @@
 - [ ] 3.1 Verificar que a tela renderiza sem erros
 - [ ] 3.2 Validar o código Python com compilação
 - [ ] 3.3 Rodar `openspec validate --change cadastro-perfil`
+
+> Nota de arquivamento (2026-10-14): change substituída por `completar-perfil-onboarding` (perfil vinculado ao usuário autenticado, com RLS). Arquivada sem aplicar a spec `perfil-cadastro`, que descrevia um POST `/profiles` sem vínculo com usuário.

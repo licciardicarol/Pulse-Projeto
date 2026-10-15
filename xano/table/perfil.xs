@@ -15,25 +15,23 @@ table Perfil {
     date? data_de_nascimento?
   
     // opcional
-    text sexo? filters=trim
-  
-    decimal altura_cm?
-    decimal tipo_fisico?
-    text nivel_fisico? filters=trim
-    enum modalidade_fav? {
-      values = [
-        "Musculação"
-        "Cardio"
-        "Funcional"
-        "Luta"
-        "CrossFit"
-        "Yoga"
-        "Esportes de areia"
-        "Pilates"
-      ]
+    enum sexo? {
+      values = ["Feminino", "Masculino", "Outro"]
     }
   
-    int? horario_fav_de_treino?
+    decimal altura_cm?
+    enum tipo_fisico? {
+      values = ["Mesomorfo", "Ectomorfo", "Endomorfo"]
+    }
+  
+    enum nivel_fisico? {
+      values = ["Iniciante", "Intermediário", "Avançado"]
+    }
+  
+    enum? horario_fav_de_treino? {
+      values = ["Manhã", "Tarde", "Noite", "Madrugada"]
+    }
+  
     int meta_semanal?
     enum objetivo? {
       values = [
@@ -46,11 +44,31 @@ table Perfil {
   
     bool medidas?
     timestamp data_atualizacao?
+    int user_id? {
+      table = "user"
+    }
+  
+    // controla o fluxo de onboarding; criado como false no signup
+    bool onboarding_concluido?
+  
+    enum[] modalidade_fav1? {
+      values = [
+        "Pilates"
+        "Esportes de areia"
+        "Yoga"
+        "CrossFit"
+        "Luta"
+        "Funcional"
+        "Cardio"
+        "Musculação"
+      ]
+    }
   }
 
   index = [
     {type: "primary", field: [{name: "id"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
+    {type: "btree|unique", field: [{name: "user_id", op: "asc"}]}
   ]
 
   guid = "G91Qbr-i1pVBslSIBEHnRH0pinI"

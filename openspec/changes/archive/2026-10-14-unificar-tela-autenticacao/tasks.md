@@ -20,5 +20,6 @@
 ## 4. Validação final e limite de integração
 
 - [x] 4.1 Executar `reflex run` e validar visualmente os dois modos e as quatro larguras; registrar qualquer bloqueio de ambiente.
-- [ ] 4.2 Executar `pytest` e confirmar que as verificações de rotas e do onboarding passam.
+- [x] 4.2 Executar `pytest` e confirmar que as verificações de rotas e do onboarding passam.
 - [ ] 4.3 Manter login, cadastro real, Google OAuth, sessão e redirecionamento autenticado bloqueados até receber contratos Xano e destino pós-autenticação; então validar conta/perfil, login, credenciais inválidas e duplicidade em ambiente de teste sem alterar endpoints ou schema.
+> Nota de arquivamento (2026-10-14): as tasks 2.3 e 4.3 (envio real, sessão e redirecionamento autenticado) foram transferidas para a change `completar-perfil-onboarding`, que integra a autenticação do Xano.

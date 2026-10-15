@@ -1,18 +1,52 @@
+import json
+
 import reflex as rx
 
-from projetofacul.projetofacul import app, home, onboarding_page
+from projetofacul.logic.navegacao import ROTAS_PRIVADAS
+from projetofacul.projetofacul import app, home, redirect_page
+from projetofacul.states.sessao_state import SessaoState
 from projetofacul.auth_page import pagina_autenticacao
 from projetofacul.landing_page import FaqState, PERGUNTAS_FREQUENTES, faq_item
 from styles.theme import LANDING_PAGE_CSS
 
 
-def test_rota_raiz_exibe_home_publica():
-    routes = {page.route: page.component for page in app.pages}
+def escapar(texto: str) -> str:
+    # o Reflex serializa acentos como sequências \\uXXXX ao converter componentes em texto
 
-    assert routes["/"] is home
-    assert routes["/cadastro"] is pagina_autenticacao
-    assert routes["/login"] is pagina_autenticacao
-    assert routes["/onboarding"] is onboarding_page
+    return json.dumps(texto)[1:-1]
+
+
+def get_routes() -> dict:
+    return {rota: pagina.component for rota, pagina in app._unevaluated_pages.items()}
+
+
+def test_rota_raiz_exibe_home_publica():
+    routes = get_routes()
+
+    assert routes["index"] is home
+    assert routes["cadastro"] is pagina_autenticacao
+    assert routes["login"] is pagina_autenticacao
+    assert routes["onboarding"] is redirect_page
+
+
+def get_on_load_names(rota: str) -> list[str]:
+    on_load = app._unevaluated_pages[rota].on_load
+    eventos = on_load if isinstance(on_load, list) else [on_load]
+    return [evento.fn.__name__ for evento in eventos]
+
+
+def test_rotas_privadas_exigem_sessao():
+    for rota in ROTAS_PRIVADAS:
+        assert get_on_load_names(rota.strip("/")) == [SessaoState.ensure_session.fn.__name__]
+
+
+def test_onboarding_antigo_redireciona_para_perfil():
+    assert get_on_load_names("onboarding") == ["redirect_to_perfil"]
+
+
+def test_telas_de_acesso_mandam_usuario_logado_para_o_app():
+    for rota in ("login", "cadastro"):
+        assert "redirect_if_authenticated" in get_on_load_names(rota)
 
 
 def test_home_possui_novas_secoes_publicas():
@@ -23,11 +57,11 @@ def test_home_possui_novas_secoes_publicas():
         if hasattr(child, "children")
     )
 
-    assert "Como funciona" in component_text
-    assert "Tudo em um só app" in component_text
-    assert "Para quem é o Pulse" in component_text
-    assert "Perguntas frequentes" in component_text
-    assert "Comece hoje o seu histórico" in component_text
+    assert escapar("Como funciona") in component_text
+    assert escapar("Tudo em um só app") in component_text
+    assert escapar("Para quem é o Pulse") in component_text
+    assert escapar("Perguntas frequentes") in component_text
+    assert escapar("Comece hoje o seu histórico") in component_text
     assert "Social (em breve)" not in component_text
 
 
@@ -36,7 +70,7 @@ def test_home_possui_cabecalho_ordenado():
     component_text = str(component)
 
     assert component_text.index("Pulse") < component_text.index("Entrar")
-    assert component_text.index("Entrar") < component_text.index("Começar grátis")
+    assert component_text.index("Entrar") < component_text.index(escapar("Começar grátis"))
     assert "Social (em breve)" not in component_text
 
 

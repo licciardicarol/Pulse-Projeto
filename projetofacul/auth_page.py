@@ -1,11 +1,37 @@
 """Tela única de autenticação do Pulse."""
 
-import re
 from typing import Any
 
 import reflex as rx
 
+from projetofacul.logic.conta_validacao import (
+    TAMANHO_MINIMO_SENHA,
+    is_valid_email,
+    is_valid_password,
+    normalize_email,
+)
+from projetofacul.services import xano_client
+from projetofacul.services.xano_client import XanoError
+from projetofacul.states.sessao_state import SessaoState
 from styles.theme import THEME
+
+MENSAGEM_FALHA_GENERICA = "Não foi possível concluir o acesso agora. Tente novamente em instantes."
+
+
+def get_auth_error_message(modo: str, tipo_erro: str) -> str:
+    """Traduz o tipo de falha do Xano em mensagem amigável, sem detalhes técnicos."""
+    if tipo_erro == "nao_configurado":
+        return "O acesso está temporariamente indisponível."
+    if modo == "cadastro":
+        if tipo_erro == "acesso_negado":
+            # não confirma que o e-mail existe; apenas orienta para o login
+            return "Não foi possível criar a conta com este e-mail. Se você já tem conta, use Entrar."
+        if tipo_erro == "invalido":
+            return "Verifique os dados informados e tente novamente."
+        return MENSAGEM_FALHA_GENERICA
+    if tipo_erro in ("acesso_negado", "nao_autorizado", "invalido"):
+        return "E-mail ou senha incorretos."
+    return MENSAGEM_FALHA_GENERICA
 
 
 class AuthState(rx.State):
@@ -70,7 +96,11 @@ class AuthState(rx.State):
         self.erro_geral = "A recuperação de senha ainda não está disponível."
 
     @rx.event
-    def enviar(self, form_data: dict[str, Any]):
+    async def enviar(self, form_data: dict[str, Any]):
+        # proteção contra duplo envio (Enter + clique, cliques repetidos)
+        if self.enviando:
+            return
+
         self.nome = form_data.get("nome", "").strip()
         self.email = form_data.get("email", "").strip()
         self.senha = form_data.get("senha", "")
@@ -79,12 +109,14 @@ class AuthState(rx.State):
 
         if self.modo == "cadastro" and not self.nome:
             self.erro_nome = "Informe seu nome completo."
+        elif self.modo == "cadastro" and len(self.nome) > 50:
+            self.erro_nome = "Use no máximo 50 caracteres."
 
-        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", self.email):
+        if not is_valid_email(self.email):
             self.erro_email = "Informe um e-mail válido."
 
-        if len(self.senha) < 8:
-            self.erro_senha = "A senha deve ter pelo menos 8 caracteres."
+        if not is_valid_password(self.senha):
+            self.erro_senha = f"A senha deve ter pelo menos {TAMANHO_MINIMO_SENHA} caracteres."
 
         if self.modo == "cadastro" and self.confirmar_senha != self.senha:
             self.erro_confirmacao = "As senhas não coincidem."
@@ -92,7 +124,25 @@ class AuthState(rx.State):
         if any((self.erro_nome, self.erro_email, self.erro_senha, self.erro_confirmacao)):
             return
 
-        self.erro_geral = "A autenticação ainda não está conectada ao Xano."
+        self.enviando = True
+        yield
+
+        try:
+            if self.modo == "cadastro":
+                token = await xano_client.signup(self.nome, normalize_email(self.email), self.senha)
+            else:
+                token = await xano_client.login(normalize_email(self.email), self.senha)
+        except XanoError as erro:
+            self.erro_geral = get_auth_error_message(self.modo, erro.tipo)
+            self.enviando = False
+            return
+
+        sessao = await self.get_state(SessaoState)
+        destino = await sessao.start_session(token)
+        self.senha = ""
+        self.confirmar_senha = ""
+        self.enviando = False
+        yield rx.redirect(destino)
 
     def limpar_erros(self):
         self.erro_nome = ""
