@@ -228,7 +228,7 @@ html, body, #root { min-height: 100%; margin: 0; }
   outline: 3px solid rgba(43,140,255,.65); outline-offset: 3px;
 }
 .auth-form { display: grid; gap: 16px; }
-.auth-field { display: grid; gap: 8px; min-width: 0; }
+.auth-field { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-width: 0; }
 .auth-label-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .auth-label { color: #E8EEF8; font-size: 13px; font-weight: 650; }
 .auth-forgot { min-height: 44px; padding: 0; border: 0; background: transparent; color: #8EBEFF; font: inherit; font-size: 12px; cursor: pointer; }
@@ -251,12 +251,13 @@ html, body, #root { min-height: 100%; margin: 0; }
 .auth-eye:hover { color: __TEXT__; background: rgba(255,255,255,.07); }
 .auth-error { margin: 0; color: #F0A1A9; font-size: 12px; line-height: 1.4; }
 .auth-global-error { margin: 0; padding: 11px 12px; border: 1px solid rgba(240,161,169,.24); border-radius: 8px; color: #F2B1B7; background: rgba(130,35,48,.15); font-size: 13px; line-height: 1.5; }
-.auth-expanding { display: grid; grid-template-rows: 0fr; opacity: 0; overflow: hidden; transition: grid-template-rows 200ms ease, opacity 200ms ease; }
+.auth-expanding { display: grid; grid-template-rows: 0fr; opacity: 0; overflow: hidden; transition: grid-template-rows 200ms ease, opacity 200ms ease, margin-top 200ms ease; }
 .auth-expanding.is-open { grid-template-rows: 1fr; opacity: 1; }
+.auth-expanding-below.is-open { margin-top: 16px; }
 .auth-expanding-inner { min-height: 0; overflow: hidden; display: grid; gap: 16px; }
 .auth-button {
   min-height: 48px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px;
-  margin-top: 2px; border: 0; border-radius: 10px; color: __TEXT__; background: __PRIMARY__;
+  margin-top: 16px; border: 0; border-radius: 10px; color: __TEXT__; background: __PRIMARY__;
   box-shadow: 0 10px 26px rgba(43,140,255,.18); font: inherit; font-size: 14px; font-weight: 750; cursor: pointer;
   transition: transform 170ms ease, box-shadow 170ms ease, background 170ms ease, opacity 170ms ease;
 }
@@ -384,6 +385,15 @@ def password_input(campo: str, input_id: str, valor, mostrar, autocomplete, desa
     )
 
 
+def secao_cadastro(campo: rx.Component, class_name: str = "auth-expanding") -> rx.Component:
+    """Campo exibido só no modo cadastro, com animação de abertura."""
+    return rx.box(
+        rx.box(campo, class_name="auth-expanding-inner"),
+        class_name=rx.cond(AuthState.modo == "cadastro", f"{class_name} is-open", class_name),
+        aria_hidden=AuthState.modo != "cadastro",
+    )
+
+
 def pagina_autenticacao() -> rx.Component:
     return rx.box(
         rx.html(
@@ -469,108 +479,100 @@ def pagina_autenticacao() -> rx.Component:
                     rx.form(
                         rx.box(
                             rx.box(
-                                rx.box(
-                                    rx.box(
-                                        auth_field(
-                                            "Nome completo",
-                                            "auth-name",
-                                            rx.el.input(
-                                                id="auth-name",
-                                                name="nome",
-                                                type="text",
-                                                auto_complete="name",
-                                                value=AuthState.nome,
-                                                on_change=lambda valor: AuthState.atualizar_campo("nome", valor),
-                                                placeholder="Como quer ser chamado",
-                                                disabled=AuthState.modo != "cadastro",
-                                                aria_invalid=AuthState.erro_nome != "",
-                                                class_name="auth-input",
-                                            ),
-                                            AuthState.erro_nome,
-                                        ),
-                                        auth_field(
-                                            "Confirmar senha",
-                                            "auth-confirm-password",
-                                            password_input(
-                                                "confirmacao",
-                                                "auth-confirm-password",
-                                                AuthState.confirmar_senha,
-                                                AuthState.mostrar_confirmacao,
-                                                "new-password",
-                                                AuthState.modo != "cadastro",
-                                            ),
-                                            AuthState.erro_confirmacao,
-                                        ),
-                                        class_name="auth-expanding-inner",
-                                    ),
-                                    class_name=rx.cond(
-                                        AuthState.modo == "cadastro",
-                                        "auth-expanding is-open",
-                                        "auth-expanding",
-                                    ),
-                                    aria_hidden=AuthState.modo != "cadastro",
-                                ),
-                                rx.box(
+                                secao_cadastro(
                                     auth_field(
-                                        "E-mail",
-                                        "auth-email",
+                                        "Nome completo",
+                                        "auth-name",
                                         rx.el.input(
-                                            id="auth-email",
-                                            name="email",
-                                            type="email",
-                                            auto_complete="email",
-                                            value=AuthState.email,
-                                            on_change=lambda valor: AuthState.atualizar_campo("email", valor),
-                                            placeholder="voce@exemplo.com",
-                                            aria_invalid=AuthState.erro_email != "",
+                                            id="auth-name",
+                                            name="nome",
+                                            type="text",
+                                            auto_complete="name",
+                                            value=AuthState.nome,
+                                            on_change=lambda valor: AuthState.atualizar_campo("nome", valor),
+                                            placeholder="Como quer ser chamado",
+                                            disabled=AuthState.modo != "cadastro",
+                                            aria_invalid=AuthState.erro_nome != "",
                                             class_name="auth-input",
                                         ),
-                                        AuthState.erro_email,
+                                        AuthState.erro_nome,
                                     ),
-                                    rx.box(
-                                        rx.hstack(
-                                            rx.el.label("Senha", html_for="auth-password", class_name="auth-label"),
-                                            rx.cond(
-                                                AuthState.modo == "login",
-                                                rx.button(
-                                                    "Esqueci minha senha",
-                                                    type="button",
-                                                    on_click=AuthState.recuperar_senha,
-                                                    class_name="auth-forgot",
-                                                ),
-                                                rx.fragment(),
-                                            ),
-                                            class_name="auth-label-row",
-                                        ),
-                                        password_input(
-                                            "senha",
-                                            "auth-password",
-                                            AuthState.senha,
-                                            AuthState.mostrar_senha,
-                                            rx.cond(AuthState.modo == "login", "current-password", "new-password"),
-                                        ),
+                                ),
+                                auth_field(
+                                    "E-mail",
+                                    "auth-email",
+                                    rx.el.input(
+                                        id="auth-email",
+                                        name="email",
+                                        type="email",
+                                        auto_complete="email",
+                                        value=AuthState.email,
+                                        on_change=lambda valor: AuthState.atualizar_campo("email", valor),
+                                        placeholder="voce@exemplo.com",
+                                        aria_invalid=AuthState.erro_email != "",
+                                        class_name="auth-input",
+                                    ),
+                                    AuthState.erro_email,
+                                ),
+                                rx.box(
+                                    rx.hstack(
+                                        rx.el.label("Senha", html_for="auth-password", class_name="auth-label"),
                                         rx.cond(
-                                            AuthState.erro_senha != "",
-                                            rx.text(
-                                                AuthState.erro_senha,
-                                                class_name="auth-error",
-                                                role="alert",
-                                                aria_live="polite",
+                                            AuthState.modo == "login",
+                                            rx.button(
+                                                "Esqueci minha senha",
+                                                type="button",
+                                                on_click=AuthState.recuperar_senha,
+                                                class_name="auth-forgot",
                                             ),
                                             rx.fragment(),
                                         ),
-                                        class_name=rx.cond(
-                                            AuthState.erro_senha != "",
-                                            "auth-field has-error",
-                                            "auth-field",
-                                        ),
-                                        align="stretch",
-                                        spacing="2",
+                                        class_name="auth-label-row",
                                     ),
-                                            class_name="auth-form",
+                                    password_input(
+                                        "senha",
+                                        "auth-password",
+                                        AuthState.senha,
+                                        AuthState.mostrar_senha,
+                                        rx.cond(AuthState.modo == "login", "current-password", "new-password"),
+                                    ),
+                                    rx.cond(
+                                        AuthState.erro_senha != "",
+                                        rx.text(
+                                            AuthState.erro_senha,
+                                            class_name="auth-error",
+                                            role="alert",
+                                            aria_live="polite",
+                                        ),
+                                        rx.fragment(),
+                                    ),
+                                    class_name=rx.cond(
+                                        AuthState.erro_senha != "",
+                                        "auth-field has-error",
+                                        "auth-field",
+                                    ),
+                                    align="stretch",
+                                    spacing="2",
                                 ),
                                 class_name="auth-form",
                                 width="100%",
+                            ),
+                            # fora do grid .auth-form para não somar gap quando recolhido no login
+                            secao_cadastro(
+                                auth_field(
+                                    "Confirmar senha",
+                                    "auth-confirm-password",
+                                    password_input(
+                                        "confirmacao",
+                                        "auth-confirm-password",
+                                        AuthState.confirmar_senha,
+                                        AuthState.mostrar_confirmacao,
+                                        "new-password",
+                                        AuthState.modo != "cadastro",
+                                    ),
+                                    AuthState.erro_confirmacao,
+                                ),
+                                class_name="auth-expanding auth-expanding-below",
                             ),
                             rx.cond(
                                 AuthState.erro_geral != "",
