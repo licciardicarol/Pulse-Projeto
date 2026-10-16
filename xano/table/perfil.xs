@@ -25,7 +25,13 @@ table Perfil {
     }
   
     enum nivel_fisico? {
-      values = ["Iniciante", "Intermediário", "Avançado"]
+      values = [
+        "Sedentário"
+        "Iniciante"
+        "Intermediário"
+        "Avançado"
+        "Atleta"
+      ]
     }
   
     enum? horario_fav_de_treino? {
@@ -34,12 +40,7 @@ table Perfil {
   
     int meta_semanal?
     enum objetivo? {
-      values = [
-        "Hipertrofia (ganho de massa muscular)"
-        "Emagrecimento (perda de gordura)"
-        "Melhorar condicionamento físico"
-        "Preservação de saúde mental"
-      ]
+      values = ["Perder gordura", "Ganhar massa", "Manter", "Performance"]
     }
   
     bool medidas?
@@ -53,14 +54,15 @@ table Perfil {
   
     enum[] modalidade_fav1? {
       values = [
-        "Pilates"
-        "Esportes de areia"
-        "Yoga"
-        "CrossFit"
-        "Luta"
-        "Funcional"
-        "Cardio"
         "Musculação"
+        "Corrida"
+        "Ciclismo"
+        "Funcional"
+        "Crossfit"
+        "Luta"
+        "Yoga"
+        "Natação"
+        "Esportes coletivos"
       ]
     }
   }

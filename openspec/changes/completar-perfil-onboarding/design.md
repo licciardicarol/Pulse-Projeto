@@ -55,10 +55,10 @@ Funções assíncronas (`signup`, `login`, `get_me`, `get_perfil`, `update_perfi
 
 ### D9. UI com elementos nativos + Radix onde dá acessibilidade pronta
 - Selects: `rx.el.select` nativo (label `for`, `autocomplete`, primeira opção vazia desabilitada "Selecione").
-- Biotipo: `rx.radio_cards` (Radix) → `role="radiogroup"` e navegação por setas nativos, estilizado com tokens.
+- Biotipo: `<input type="radio">` nativos com o mesmo `name`, escondidos dentro de `<label>` estilizados como cards, num `role="radiogroup"` → setas e foco nativos. *Revisado em 2026-10-16:* `rx.radio_cards` aplicava as cores de destaque do tema Radix, que não seguem os tokens do Pulse.
 - Chips: `rx.el.button` com `aria-pressed`.
-- Switch: `rx.switch` (Radix, `role="switch"`).
 - Toast: `rx.toast`.
+- Cards empilhados com 32px de espaço entre eles; conteúdo com largura máxima de ~768px, como nas referências visuais de 2026-10-16.
 - CSS em string com tokens substituídos (mesmo padrão de `auth_page.py`), com breakpoints 768px/520px, fade-in escalonado e `prefers-reduced-motion`.
 
 ### D10. Estrutura de arquivos
@@ -66,7 +66,7 @@ Funções assíncronas (`signup`, `login`, `get_me`, `get_perfil`, `update_perfi
 projetofacul/
   services/xano_client.py
   logic/perfil_opcoes.py, perfil_validacao.py, conta_validacao.py, navegacao.py
-  states/sessao_state.py, perfil_state.py, conta_state.py
+  states/sessao_state.py, perfil_state.py
   components/navbar.py, app_shell.py   (navbar + container + guarda)
   pages/perfil_page.py, placeholder_page.py
   auth_page.py      (AuthState passa a chamar o xano_client)
@@ -78,6 +78,8 @@ projetofacul/
 - [Token legível por JS (cookie não-httpOnly)] → `same_site="strict"`, expiração de 24h, nenhum `rx.html` com conteúdo vindo do usuário; refresh/httpOnly ficam para uma change futura.
 - [Apagar CRUDs públicos pode quebrar algo que os use] → no código, só `/onboarding` usa `/profiles`, e ele é substituído nesta change; confirmar no Xano que nenhuma outra integração os usa antes do Push.
 - [Mudar `modalidade_fav` para lista e corrigir `Mesoformo` com dados existentes] → verificar no Xano se há registros; se houver, migrar o valor antigo para lista de 1 item e `Mesoformo` → `Mesomorfo` antes do Push.
+- [Trocar os valores de `nivel_fisico`, `objetivo` e `modalidade_fav1` com Perfis já salvos] → antes de aplicar, conferir no Xano se algum Perfil usa valores antigos (ex.: "Hipertrofia (ganho de massa muscular)", "Pilates", "Cardio"); se houver, limpar ou converter manualmente esses campos (são contas de teste). O `PATCH perfil/me` precisa ser editado no site do Xano, porque o push de endpoints pelo CLI falha (ver notas).
+- [Sem o switch de medidas na tela] → o `PATCH perfil/me` continua exigindo `medidas`; o `PerfilState` reenvia o valor lido no `GET perfil/me`, então nada muda no Xano.
 - [`user_id` sem índice único permitiria 2 Perfis] → adicionar índice único; `auth/signup` também verifica.
 - [Tabelas `treinos`, `sono`, `refeicoes`, `registro_peso`, `obj_user` continuam com CRUD público e sem dono] → fora do escopo; registrar como risco aberto para a próxima change de RLS.
 - [Validação duplicada Reflex/Xano pode divergir] → opções vêm de `perfil_opcoes.py` e os testes comparam essas constantes com os enums de `xano/table/perfil.xs`.
@@ -95,3 +97,10 @@ projetofacul/
 - O push de endpoints pelo CLI (`xano workspace push`) falha no servidor com `Undefined array key "<rota>:<verbo>:427970"` para qualquer query do grupo "Luna's Workspace"; tabelas sobem normalmente. Endpoints são criados/editados no site do Xano e sincronizados com pull. Nunca fazer pull com alterações locais não enviadas (o pull sobrescreve).
 - `modalidade_fav1` usa `enum[]` sem mínimo: com `enum[1:8]` o `db.add Perfil` do signup era recusado, e o Xano não desfaz o `db.add user` anterior (sem transação), deixando usuário sem Perfil.
 - O plano gratuito do Xano limita requisições em rajada; respostas fora dos códigos mapeados viram `indisponivel` ("Tente novamente em instantes").
+
+## Decisões de 2026-10-16 (referências visuais da tela de Perfil)
+
+- Opções novas: Condicionamento (Sedentário, Iniciante, Intermediário, Avançado, Atleta), Horário (Manhã, Tarde, Noite, Madrugada), Objetivo (Perder gordura, Ganhar massa, Manter, Performance) e Modalidades (Musculação, Corrida, Ciclismo, Funcional, Crossfit, Luta, Yoga, Natação, Esportes coletivos). `logic/perfil_opcoes.py`, `xano/table/perfil.xs` e `PATCH perfil/me` mudam juntos; o teste que compara as opções com o `.xs` garante que não divergem.
+- A tela `/perfil` tem só Dados pessoais, Biotipo corporal e Preferências de treino, mais o botão "Salvar perfil". Os cards Preferências de registro e Conta foram adiados, assim como o `ContaState`.
+- A navbar continua sem "Social", mesmo aparecendo na referência visual.
+- O login de quem já concluiu o onboarding continua indo para `/inicio`.

@@ -17,19 +17,26 @@ query "perfil/me" verb=PATCH {
     }
 
     enum nivel_fisico {
-      values = ["Iniciante", "Intermediário", "Avançado"]
+      values = [
+        "Sedentário"
+        "Iniciante"
+        "Intermediário"
+        "Avançado"
+        "Atleta"
+      ]
     }
 
     enum[] modalidade_fav1 {
       values = [
-        "Pilates"
-        "Esportes de areia"
-        "Yoga"
-        "CrossFit"
-        "Luta"
-        "Funcional"
-        "Cardio"
         "Musculação"
+        "Corrida"
+        "Ciclismo"
+        "Funcional"
+        "Crossfit"
+        "Luta"
+        "Yoga"
+        "Natação"
+        "Esportes coletivos"
       ]
     }
 
@@ -39,12 +46,7 @@ query "perfil/me" verb=PATCH {
 
     int meta_semanal filters=min:1|max:14
     enum objetivo {
-      values = [
-        "Hipertrofia (ganho de massa muscular)"
-        "Emagrecimento (perda de gordura)"
-        "Melhorar condicionamento físico"
-        "Preservação de saúde mental"
-      ]
+      values = ["Perder gordura", "Ganhar massa", "Manter", "Performance"]
     }
 
     bool medidas

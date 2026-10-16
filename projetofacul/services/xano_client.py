@@ -93,6 +93,10 @@ async def get_perfil(token: str) -> dict[str, Any]:
     return await send_request("GET", "perfil/me", token=token)
 
 
+async def update_perfil(token: str, dados: dict[str, Any]) -> dict[str, Any]:
+    return await send_request("PATCH", "perfil/me", token=token, corpo=dados)
+
+
 async def change_email(token: str, email: str, senha_atual: str) -> dict[str, Any]:
     return await send_request(
         "PATCH", "auth/me/email", token=token, corpo={"email": email, "senha_atual": senha_atual}

@@ -14,13 +14,16 @@ Hoje a tela de autenticação não está conectada ao Xano (não há sessão), o
 - Endpoints autenticados `perfil/me` (ler/editar o próprio Perfil) e de conta (`auth/me`, troca de e-mail e senha com senha atual).
 - Desativação dos CRUDs públicos de `user`, `Perfil` e `profiles`, substituídos pelos endpoints autenticados.
 - Ajustes de schema do Perfil já decididos: correção do valor `Mesoformo` → `Mesomorfo`, modalidades como lista (`modalidade_fav1`, substitui `modalidade_fav`), padrão `false` em `onboarding_concluido`, índice único em `user_id`.
-- Tela `/perfil` (Dados pessoais, Biotipo, Preferências de treino, Preferências de registro, Conta), modo onboarding com faixa e redirecionamentos.
+- Novas opções do Perfil (decisão de 2026-10-16): Condicionamento (Sedentário, Iniciante, Intermediário, Avançado, Atleta), Objetivo (Perder gordura, Ganhar massa, Manter, Performance) e Modalidades (Musculação, Corrida, Ciclismo, Funcional, Crossfit, Luta, Yoga, Natação, Esportes coletivos).
+- Tela `/perfil` com os cards Dados pessoais, Biotipo corporal e Preferências de treino, botão "Salvar perfil", modo onboarding com faixa e redirecionamentos.
 - Navbar logada (Início, Treinos, Refeições, Sono, Peso, Relatórios, Perfil, Sair) e páginas placeholder para as áreas ainda inexistentes.
 - `/onboarding` passa a redirecionar para `/perfil`.
 - Atualização do `domain-model.md` para refletir o schema real.
 
 **Fora do escopo**
 - Card "Minhas metas" e qualquer estrutura `user_goals`.
+- Cards "Preferências de registro" (switch de medidas) e "Conta" (troca de e-mail/senha pela tela), adiados em 2026-10-16. Os endpoints de conta continuam no Xano para a change futura, e `medidas` é preservado ao salvar.
+- Item "Social" na navbar.
 - Implementação das páginas Início, Treinos, Refeições, Sono, Peso e Relatórios (apenas placeholders).
 - "Social"/comunidade, login com Google, recuperação de senha.
 - RLS das tabelas `treinos`, `sono`, `refeicoes`, `registro_peso` (não possuem `profile_id`/`user_id` hoje; ficam registradas como risco para uma change futura).
@@ -29,9 +32,10 @@ Hoje a tela de autenticação não está conectada ao Xano (não há sessão), o
 
 - **BREAKING** (Xano): remoção dos endpoints públicos `user*`, `perfil*` por id/lista e `profiles*`; o app passa a usar apenas endpoints autenticados.
 - **BREAKING** (Xano): `modalidade_fav` é substituído pela lista `modalidade_fav1`; `tipo_fisico` tem o valor `Mesoformo` corrigido para `Mesomorfo`.
+- **BREAKING** (Xano): os enums `nivel_fisico`, `objetivo` e `modalidade_fav1` da tabela `Perfil` e do `PATCH perfil/me` trocam de valores; Perfis já salvos com valores antigos precisam ser migrados.
 - Tabela `user` com autenticação habilitada (`auth = true`).
 - Novos endpoints Xano: `auth/signup`, `auth/login`, `auth/me`, `auth/me/email`, `auth/me/password`, `perfil/me` (GET/PATCH).
-- Novos módulos Reflex: cliente Xano (backend), validações de Perfil e Conta (lógica pura testável), `SessaoState`, `PerfilState`, `ContaState`, navbar logada, página de Perfil e placeholders.
+- Novos módulos Reflex: cliente Xano (backend), validações de Perfil e Conta (lógica pura testável), `SessaoState`, `PerfilState`, navbar logada, página de Perfil e placeholders.
 - `AuthState` deixa de exibir "não conectada ao Xano" e passa a autenticar de verdade.
 - A página antiga `/onboarding` (`onboarding_page` + `PerfilState` com POST `/profiles`) é substituída por redirecionamento para `/perfil`.
 
@@ -39,7 +43,7 @@ Hoje a tela de autenticação não está conectada ao Xano (não há sessão), o
 
 ### New Capabilities
 - `perfil-usuario`: tela `/perfil`, modo onboarding, campos, validações, salvamento e privacidade do Perfil (somente o dono lê/edita).
-- `conta-usuario`: alteração de e-mail e de senha do usuário autenticado, exigindo a senha atual.
+- `conta-usuario`: alteração de e-mail e de senha do usuário autenticado pela API, exigindo a senha atual (a interface fica para uma change futura).
 - `navegacao-autenticada`: navbar logada, guarda de rotas privadas (login e onboarding), placeholders e logout.
 
 ### Modified Capabilities
