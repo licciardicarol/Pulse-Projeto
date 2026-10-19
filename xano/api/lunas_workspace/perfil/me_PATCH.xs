@@ -17,7 +17,13 @@ query "perfil/me" verb=PATCH {
     }
   
     enum nivel_fisico {
-      values = ["Iniciante", "Intermediário", "Avançado"]
+      values = [
+        "Sedentário"
+        "Iniciante"
+        "Intermediário"
+        "Avançado"
+        "Atleta"
+      ]
     }
   
     enum[] modalidade_fav1 {
