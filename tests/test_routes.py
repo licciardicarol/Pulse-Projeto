@@ -2,7 +2,10 @@ import json
 
 import reflex as rx
 
+from projetofacul.components.navbar import ITENS_NAVBAR, navbar
 from projetofacul.logic.navegacao import ROTAS_PRIVADAS
+from projetofacul.pages.perfil_page import perfil_page
+from projetofacul.pages.placeholder_page import AREAS_EM_CONSTRUCAO
 from projetofacul.projetofacul import app, home, redirect_page
 from projetofacul.states.sessao_state import SessaoState
 from projetofacul.auth_page import pagina_autenticacao
@@ -37,7 +40,38 @@ def get_on_load_names(rota: str) -> list[str]:
 
 def test_rotas_privadas_exigem_sessao():
     for rota in ROTAS_PRIVADAS:
-        assert get_on_load_names(rota.strip("/")) == [SessaoState.ensure_session.fn.__name__]
+        # o guarda precisa ser o primeiro evento para nada privado carregar antes dele
+        assert get_on_load_names(rota.strip("/"))[0] == SessaoState.ensure_session.fn.__name__
+
+
+def test_perfil_tem_pagina_propria_e_carrega_dados_apos_guarda():
+    assert get_routes()["perfil"] is perfil_page
+    assert get_on_load_names("perfil") == ["ensure_session", "load_profile"]
+    assert "/perfil" not in AREAS_EM_CONSTRUCAO
+
+
+def test_placeholders_cobrem_as_demais_rotas_privadas():
+    assert set(AREAS_EM_CONSTRUCAO) == set(ROTAS_PRIVADAS) - {"/perfil"}
+
+
+def test_navbar_tem_itens_sem_social_e_marca_item_ativo():
+    assert [rotulo for _, rotulo, _ in ITENS_NAVBAR] == [
+        "Início",
+        "Treinos",
+        "Refeições",
+        "Sono",
+        "Peso",
+        "Relatórios",
+        "Perfil",
+    ]
+    assert {rota for rota, _, _ in ITENS_NAVBAR} == set(ROTAS_PRIVADAS)
+
+    componente = str(navbar("/sono"))
+    assert "Social" not in componente
+    # o item ativo aparece duas vezes (barra desktop + painel do celular)
+    assert componente.count('"aria-current":"page"') == 2
+    assert '"aria-expanded"' in componente
+    assert escapar("Sair") in componente
 
 
 def test_onboarding_antigo_redireciona_para_perfil():

@@ -25,7 +25,13 @@ table Perfil {
     }
   
     enum nivel_fisico? {
-      values = ["Iniciante", "Intermediário", "Avançado"]
+      values = [
+        "Iniciante"
+        "Intermediário"
+        "Avançado"
+        "Sedentário"
+        "Atleta"
+      ]
     }
   
     enum? horario_fav_de_treino? {

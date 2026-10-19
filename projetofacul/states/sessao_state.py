@@ -24,6 +24,8 @@ class SessaoState(rx.State):
     onboarding_concluido: bool = False
     sessao_verificada: bool = False
     erro_sessao: str = ""
+    # último Perfil lido do Xano; só no servidor, reaproveitado pela tela de Perfil
+    _perfil: dict = {}
 
     @rx.var
     def autenticado(self) -> bool:
@@ -35,6 +37,7 @@ class SessaoState(rx.State):
         self.usuario_email = ""
         self.onboarding_concluido = False
         self.sessao_verificada = False
+        self._perfil = {}
 
     async def load_session(self) -> bool:
         """Confirma o token no Xano e carrega usuário e status do onboarding."""
@@ -51,6 +54,7 @@ class SessaoState(rx.State):
         self.usuario_nome = usuario.get("nome") or ""
         self.usuario_email = usuario.get("email") or ""
         self.onboarding_concluido = bool(perfil.get("onboarding_concluido"))
+        self._perfil = perfil
         self.erro_sessao = ""
         return True
 

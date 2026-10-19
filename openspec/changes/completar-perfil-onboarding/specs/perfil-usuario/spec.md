@@ -1,6 +1,6 @@
 ## Purpose
 
-Permitir que o usuário autenticado complete (onboarding) e depois edite o próprio Perfil — dados pessoais, biotipo, preferências de treino e de registro — usados para personalizar recomendações, garantindo que cada usuário leia e altere apenas o próprio Perfil.
+Permitir que o usuário autenticado complete (onboarding) e depois edite o próprio Perfil — dados pessoais, biotipo e preferências de treino — usados para personalizar recomendações, garantindo que cada usuário leia e altere apenas o próprio Perfil.
 
 ## Modelos de dados envolvidos
 
@@ -24,17 +24,17 @@ CREATE TABLE perfil (
   sexo                   TEXT CHECK (sexo IN ('Feminino','Masculino','Outro')),
   altura_cm              DECIMAL,
   tipo_fisico            TEXT CHECK (tipo_fisico IN ('Ectomorfo','Mesomorfo','Endomorfo')),
-  nivel_fisico           TEXT CHECK (nivel_fisico IN ('Iniciante','Intermediário','Avançado')),
-  modalidade_fav1        TEXT[]  -- lista sem mínimo no banco (perfil nasce vazio); ≥ 1 exigido ao salvar; cada item em ('Musculação','Cardio','Funcional','Luta',
-                                 --   'CrossFit','Yoga','Esportes de areia','Pilates')
-  horario_fav_de_treino  TEXT CHECK (horario_fav_de_treino IN ('Madrugada','Manhã','Tarde','Noite')),
+  nivel_fisico           TEXT CHECK (nivel_fisico IN (
+                           'Sedentário','Iniciante','Intermediário','Avançado','Atleta')),
+  modalidade_fav1        TEXT[]  -- lista sem mínimo no banco (perfil nasce vazio); ≥ 1 exigido ao salvar;
+                                 --   cada item em ('Musculação','Cardio','Funcional','CrossFit',
+                                 --   'Luta','Yoga','Pilates','Esportes de areia')
+  horario_fav_de_treino  TEXT CHECK (horario_fav_de_treino IN ('Manhã','Tarde','Noite','Madrugada')),
   meta_semanal           INT,
   objetivo               TEXT CHECK (objetivo IN (
-                           'Hipertrofia (ganho de massa muscular)',
-                           'Emagrecimento (perda de gordura)',
-                           'Melhorar condicionamento físico',
-                           'Preservação de saúde mental')),
-  medidas                BOOLEAN DEFAULT false,
+                           'Hipertrofia (ganho de massa muscular)','Emagrecimento (perda de gordura)',
+                           'Melhorar condicionamento físico','Preservação de saúde mental')),
+  medidas                BOOLEAN DEFAULT false,  -- sem campo na tela nesta change; preservado ao salvar
   onboarding_concluido   BOOLEAN DEFAULT false,
   data_atualizacao       TIMESTAMP
 );
@@ -77,7 +77,7 @@ O backend SHALL expor leitura e edição do Perfil apenas para o usuário autent
 - **THEN** o endpoint não existe ou exige autenticação, e nenhum e-mail ou dado de Perfil é exposto
 
 ### Requirement: Tela de Perfil carrega os dados atuais
-A rota `/perfil` SHALL exibir, para o usuário autenticado, os cards Dados pessoais, Biotipo corporal, Preferências de treino, Preferências de registro, o botão "Salvar perfil" e o card Conta, nessa ordem, preenchidos com os valores atuais do Perfil. A tela SHALL NOT exibir card de metas.
+A rota `/perfil` SHALL exibir, para o usuário autenticado, um cabeçalho com ícone, o título "Perfil" e o texto "Suas informações pessoais e preferências de treino, usadas para personalizar as recomendações e o cálculo de calorias."; em seguida os cards Dados pessoais, Biotipo corporal e Preferências de treino e o botão "Salvar perfil", nessa ordem, preenchidos com os valores atuais do Perfil. A tela SHALL NOT exibir card de metas, card de Preferências de registro nem card Conta.
 
 #### Scenario: Abrir Perfil recém-criado
 - **WHEN** o usuário acaba de se cadastrar e abre `/perfil`
@@ -85,20 +85,18 @@ A rota `/perfil` SHALL exibir, para o usuário autenticado, os cards Dados pesso
 
 #### Scenario: Abrir Perfil já preenchido
 - **WHEN** o usuário com Perfil salvo abre `/perfil`
-- **THEN** todos os campos exibem os valores gravados, incluindo todas as modalidades selecionadas e o estado do switch de medidas
+- **THEN** todos os campos exibem os valores gravados, incluindo o biotipo e todas as modalidades selecionadas
 
-#### Scenario: Ausência do card de metas
+#### Scenario: Somente os três cards
 - **WHEN** a tela é exibida
-- **THEN** não há card "Minhas metas" nem botão "Salvar metas"
+- **THEN** existem apenas os cards Dados pessoais, Biotipo corporal e Preferências de treino, sem "Minhas metas", "Preferências de registro" ou "Conta"
 
 ### Requirement: Campos e opções do Perfil
 A tela SHALL oferecer exatamente estas entradas e opções, mapeadas aos campos do Perfil:
-- Nome completo (`nome`, texto); Data de nascimento (`data_de_nascimento`, data); Sexo (`sexo`: Feminino, Masculino, Outro); Altura em cm (`altura_cm`, número).
-- Biotipo (`tipo_fisico`, escolha única entre Ectomorfo, Mesomorfo, Endomorfo, cada um com sua descrição).
-- Condicionamento (`nivel_fisico`: Iniciante, Intermediário, Avançado); Horário habitual (`horario_fav_de_treino`: Madrugada, Manhã, Tarde, Noite); Meta semanal de treinos (`meta_semanal`, inteiro); Objetivo (`objetivo`: os 4 valores do Xano).
-- Modalidades favoritas (`modalidade_fav1`, seleção múltipla entre Musculação, Cardio, Funcional, Luta, CrossFit, Yoga, Esportes de areia, Pilates).
-- Registrar medidas corporais (`medidas`, liga/desliga).
-Selects SHALL NOT gravar um valor de espaço reservado como "Selecione".
+- Card Dados pessoais: Nome completo (`nome`, texto); Data de nascimento (`data_de_nascimento`, data); Sexo (`sexo`: Feminino, Masculino, Outro); Altura em cm (`altura_cm`, número).
+- Card Biotipo corporal, com o texto "Selecione o que mais se parece com você. Isso ajuda a calibrar recomendações.": `tipo_fisico`, escolha única entre Ectomorfo ("Estrutura magra, dificuldade em ganhar peso e massa. Pulso e tornozelos finos, metabolismo acelerado."), Mesomorfo ("Estrutura atlética, ganha músculo com facilidade. Ombros largos, cintura estreita.") e Endomorfo ("Estrutura mais robusta, tendência a acumular gordura. Ganho de massa mais fácil que perda."), nessa ordem.
+- Card Preferências de treino: Condicionamento (`nivel_fisico`: Sedentário, Iniciante, Intermediário, Avançado, Atleta); Horário habitual (`horario_fav_de_treino`: Manhã, Tarde, Noite, Madrugada); Meta semanal (treinos) (`meta_semanal`, campo numérico inteiro); Objetivo (`objetivo`: Hipertrofia (ganho de massa muscular), Emagrecimento (perda de gordura), Melhorar condicionamento físico, Preservação de saúde mental); Modalidades favoritas (`modalidade_fav1`, seleção múltipla entre Musculação, Cardio, Funcional, CrossFit, Luta, Yoga, Pilates, Esportes de areia).
+Selects SHALL NOT gravar um valor de espaço reservado como "Selecione". O campo `medidas` não tem entrada nesta tela e SHALL ser enviado com o valor já gravado no Perfil.
 
 #### Scenario: Seleção múltipla de modalidades
 - **WHEN** o usuário marca Musculação e Yoga e salva
@@ -111,6 +109,10 @@ Selects SHALL NOT gravar um valor de espaço reservado como "Selecione".
 #### Scenario: Placeholder não é valor
 - **WHEN** um select permanece em "Selecione"
 - **THEN** o campo é tratado como vazio na validação e nunca é enviado como valor
+
+#### Scenario: Medidas preservado
+- **WHEN** um Perfil com `medidas = true` é salvo pela tela
+- **THEN** `medidas` continua `true`
 
 ### Requirement: Validação dos campos obrigatórios
 Todos os campos do Perfil exibidos SHALL ser obrigatórios para salvar: nome (1 a 50 caracteres após remover espaços), data de nascimento (data válida no passado e não anterior a 1900-01-01), sexo, altura (número entre 100 e 250 cm), biotipo, condicionamento, horário habitual, meta semanal (inteiro entre 1 e 14), objetivo e ao menos uma modalidade. A validação SHALL ocorrer no backend do Reflex antes de chamar o Xano e SHALL ser repetida pelo Xano. Cada erro SHALL aparecer abaixo do respectivo campo, em região `aria-live="polite"`.
@@ -125,6 +127,10 @@ Todos os campos do Perfil exibidos SHALL ser obrigatórios para salvar: nome (1 
 
 #### Scenario: Altura implausível
 - **WHEN** a altura é 0, negativa, não numérica, menor que 100 ou maior que 250
+- **THEN** o campo exibe erro e o Perfil não é salvo
+
+#### Scenario: Meta semanal fora da faixa
+- **WHEN** a meta semanal é 0, maior que 14, decimal ou não numérica
 - **THEN** o campo exibe erro e o Perfil não é salvo
 
 #### Scenario: Backend rejeita dados inválidos
@@ -162,7 +168,11 @@ Enquanto `onboarding_concluido` for `false`, `/perfil` SHALL exibir no topo a fa
 - **THEN** a faixa não é exibida
 
 ### Requirement: Layout, responsividade e acessibilidade do Perfil
-A tela SHALL usar os tokens visuais de `styles/theme.py`, conteúdo centralizado com largura máxima de cerca de 960px e sem rolagem horizontal em 360px, 768px, 1280px e 1920px. Em larguras de celular, as grades de 2 colunas e os cards de biotipo SHALL virar coluna única, os chips SHALL quebrar linha e o botão "Salvar perfil" SHALL ocupar a largura total. Todo controle interativo SHALL ter alvo de toque de pelo menos 44px, foco visível e rótulo associado; os campos SHALL ter `autocomplete` adequado; o biotipo SHALL ser um grupo de rádio navegável por setas; os chips SHALL expor `aria-pressed`. Animações de entrada SHALL ser desativadas sob `prefers-reduced-motion`.
+A tela SHALL usar os tokens visuais de `styles/theme.py`, conteúdo alinhado com largura máxima de cerca de 768px e sem rolagem horizontal em 360px, 768px, 1280px e 1920px. Os cards SHALL ser separados entre si por um espaço vertical de 32px. Em larguras de celular, as grades de 2 colunas e os cards de biotipo SHALL virar coluna única, os chips SHALL quebrar linha e o botão "Salvar perfil" SHALL ocupar a largura total. Todo controle interativo SHALL ter alvo de toque de pelo menos 44px, foco visível e rótulo associado; os campos SHALL ter `autocomplete` adequado; o biotipo SHALL ser um grupo de rádio navegável por setas; os chips SHALL expor `aria-pressed`. Animações de entrada SHALL ser desativadas sob `prefers-reduced-motion`.
+
+#### Scenario: Espaço entre cards
+- **WHEN** a tela é exibida em qualquer largura
+- **THEN** há 32px de espaço entre o fim de um card e o início do próximo
 
 #### Scenario: Celular
 - **WHEN** a tela é aberta em 360px
