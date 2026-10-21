@@ -16,29 +16,57 @@ implementar o sistema sobre esse schema.
 
 ## Core Concepts (Entities & Value Objects)
 
-### Requirement: Perfil (Profile)
-O sistema DEVE definir uma entidade `Perfil` representando o usuário e
-contendo:
+### Requirement: Usuário (User)
+O sistema DEVE definir uma entidade `User` (tabela `user` do Xano, com
+autenticação habilitada) contendo:
 - id: identificador único
+- nome: string
+- email: string única (normalizada: sem espaços nas pontas, minúsculas)
+- senha: hash (tipo password do Xano); nunca é retornada pela API
+
+#### Scenario: Cadastro de conta
+- **Given** uma pessoa informa nome, e-mail e senha (mínimo de 8 caracteres)
+- **When** o Xano cria a conta
+- **Then** o sistema devolve um token de sessão e cria o Perfil vinculado
+
+---
+
+### Requirement: Perfil (Profile)
+O sistema DEVE definir uma entidade `Perfil` com os dados de personalização
+do usuário, contendo:
+- id: identificador único
+- user_id: referência ao `User` (única — relação 1:1)
 - nome: string (até 50 caracteres)
-- data_de_nascimento: date
-- sexo: enum (Feminino, Masculino)
-- altura_cm: number
-- tipo_fisico: decimal(5,2)
-- nivel_fisico: string (até 20 caracteres)
-- modalidade_fav: enum (Musculação, Corrida, Yoga)
-- horario_fav_de_treino: number (opcional)
-- meta_semanal: number
-- objetivo: enum (Emagrecimento, Hipertrofia, Condicionamento) — opcional
-- medidas: boolean (indica se o usuário possui medidas corporais registradas)
-- onboarding_concluido: boolean (controla se o fluxo de onboarding já foi
-  finalizado)
-- data_atualizacao: datetime — opcional, atualizado automaticamente
+- data_de_nascimento: date (no passado, a partir de 1900)
+- sexo: enum (Feminino, Masculino, Outro)
+- altura_cm: decimal (100 a 250)
+- tipo_fisico: enum (Ectomorfo, Mesomorfo, Endomorfo)
+- nivel_fisico: enum (Sedentário, Iniciante, Intermediário, Avançado, Atleta)
+- modalidade_fav1: lista de enum (Musculação, Cardio, Funcional, CrossFit,
+  Luta, Yoga, Pilates, Esportes de areia) — substitui o antigo `modalidade_fav`
+- horario_fav_de_treino: enum (Manhã, Tarde, Noite, Madrugada)
+- meta_semanal: inteiro (1 a 14 treinos por semana)
+- objetivo: enum (Hipertrofia (ganho de massa muscular), Emagrecimento (perda
+  de gordura), Melhorar condicionamento físico, Preservação de saúde mental)
+- medidas: boolean (indica se o usuário quer registrar medidas corporais)
+- onboarding_concluido: boolean (false no cadastro; true ao salvar o Perfil
+  completo pela primeira vez)
+- data_atualizacao: datetime — preenchido pelo servidor a cada salvamento
+
+No banco todos os campos acima (exceto `id` e `user_id`) são opcionais, porque
+o Perfil nasce vazio no cadastro. Ao salvar pela tela/API, todos passam a ser
+obrigatórios (modalidades: pelo menos uma), validados no Reflex e no Xano.
 
 #### Scenario: Criação de perfil
 - **Given** um novo usuário se cadastra no Pulse
-- **When** ele preenche nome, data de nascimento, sexo e altura
-- **Then** um registro de Perfil é criado automaticamente vinculado ao usuário
+- **When** o Xano cria a conta
+- **Then** um Perfil é criado na mesma operação, vinculado ao `user_id`, com o
+  nome do cadastro e `onboarding_concluido = false`
+
+#### Scenario: Conclusão do onboarding
+- **Given** um usuário com `onboarding_concluido = false`
+- **When** ele salva o Perfil com todos os campos válidos
+- **Then** o Perfil é atualizado e `onboarding_concluido` passa a `true`
 
 ---
 
@@ -179,6 +207,7 @@ Perfil, e opcionalmente a um RegistroDePeso, contendo:
 
 ## Relationships
 
+- **User 1:1 Perfil** (via `Perfil.user_id`, único)
 - **Perfil 1:N Treino**
 - **Treino 1:N Exercicio**
 - **Perfil 1:N Sono**
@@ -189,6 +218,7 @@ Perfil, e opcionalmente a um RegistroDePeso, contendo:
 
 ```mermaid
 erDiagram
+    USER ||--|| PERFIL : possui
     PERFIL ||--o{ TREINO : registra
     TREINO ||--o{ EXERCICIO : contem
     PERFIL ||--o{ SONO : registra
@@ -207,11 +237,16 @@ erDiagram
   posterior a `inicio_sono` (Sono)
 - `peso`, `calorias`, `carga`, `repeticoes`, `series` DEVEM ser valores não negativos
 - Cada usuário só pode visualizar e editar seus próprios registros (RLS —
-  ver `project-overview.md`, seção "Segurança e regras do banco")
+  ver `project-overview.md`, seção "Segurança e regras do banco"). No Xano,
+  isso é garantido por endpoints autenticados (`auth = "user"`) que localizam
+  o registro sempre pelo `$auth.id` do token — nunca por id enviado pelo
+  cliente (ex.: `GET/PATCH perfil/me`). Não existem CRUDs públicos de `user`
+  ou `Perfil`.
 
 ## Glossary
 
-- **Perfil**: representação do usuário dentro do domínio do Pulse
+- **User**: conta de acesso (nome, e-mail e senha) usada na autenticação
+- **Perfil**: dados de personalização do usuário dentro do domínio do Pulse
 - **Treino**: sessão de treino, que agrupa um ou mais exercícios
 - **Exercício**: um exercício individual dentro de um Treino, com suas
   próprias séries, repetições e carga

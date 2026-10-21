@@ -60,6 +60,13 @@ class Theme:
 
 THEME = Theme()
 
+
+def apply_theme_tokens(css: str) -> str:
+    """Troca `__NOME_DA_COR__` (ex.: `__TEXT_PRIMARY__`) e `__FONT__` pelos tokens do tema."""
+    for nome, valor in THEME.COLORS.items():
+        css = css.replace(f"__{nome.upper()}__", valor)
+    return css.replace("__FONT__", THEME.FONT_FAMILIES)
+
 LANDING_PAGE_CSS: Final[str] = """
 html { scroll-behavior: smooth; }
 body { background: #0B1220; }
