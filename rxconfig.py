@@ -10,6 +10,7 @@ config = rx.Config(
     plugins=[
         rx.plugins.SitemapPlugin(),
         rx.plugins.TailwindV4Plugin(),
-        rx.plugins.RadixThemesPlugin(),
+        # destaque azul do projeto nos componentes Radix (no lugar do ciano padrão)
+        rx.plugins.RadixThemesPlugin(theme=rx.theme(appearance="dark", accent_color="blue")),
     ]
 )

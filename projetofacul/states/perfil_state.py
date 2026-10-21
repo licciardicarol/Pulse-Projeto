@@ -76,7 +76,8 @@ class PerfilState(rx.State):
     def update_field(self, campo: str, valor: str):
         if campo not in CAMPOS_TEXTO:
             return
-        setattr(self, campo, valor)
+        # inputs numéricos chegam do navegador como número; o formulário guarda tudo como texto
+        setattr(self, campo, "" if valor is None else str(valor))
         self.clear_error(campo)
 
     @rx.event

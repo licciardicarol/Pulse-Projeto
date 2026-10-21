@@ -58,7 +58,7 @@ def test_rotas_autenticadas_enviam_bearer(requisicoes):
 
 @pytest.mark.parametrize(
     ("status", "tipo"),
-    [(400, "invalido"), (401, "nao_autorizado"), (403, "acesso_negado"), (404, "nao_encontrado"), (500, "indisponivel")],
+    [(400, "invalido"), (401, "nao_autorizado"), (403, "acesso_negado"), (404, "nao_encontrado"), (429, "limite_requisicoes"), (500, "indisponivel")],
 )
 def test_status_http_vira_tipo_fechado_sem_texto_do_servidor(requisicoes, status, tipo):
     _, respostas = requisicoes
@@ -116,3 +116,36 @@ def test_mensagens_de_autenticacao_sao_genericas():
     for modo in ("login", "cadastro"):
         mensagem = get_auth_error_message(modo, "indisponivel")
         assert "Tente novamente" in mensagem
+
+
+def test_refeicoes_enviam_bearer_e_so_campos_permitidos(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["refeicoes/me"] = httpx.Response(200, json={"id": 5})
+
+    asyncio.run(xano_client.create_refeicao("tok-123", "2026-10-21", "Almoço", "Arroz e feijão"))
+
+    assert registradas[0].method == "POST"
+    assert registradas[0].headers["Authorization"] == "Bearer tok-123"
+    assert json.loads(registradas[0].content) == {
+        "data_refeicao": "2026-10-21",
+        "tipo": "Almoço",
+        "descricao": "Arroz e feijão",
+    }
+
+
+def test_listar_refeicoes_devolve_lista(requisicoes):
+    _, respostas = requisicoes
+    respostas["refeicoes/me"] = httpx.Response(200, json=[{"id": 1}, {"id": 2}])
+
+    assert asyncio.run(xano_client.list_refeicoes("tok-123")) == [{"id": 1}, {"id": 2}]
+
+
+def test_excluir_refeicao_de_outro_usuario_vira_nao_encontrado(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["refeicoes/me/9"] = httpx.Response(404, json={"message": "Not Found."})
+
+    with pytest.raises(XanoError) as erro:
+        asyncio.run(xano_client.delete_refeicao("tok-123", 9))
+
+    assert erro.value.tipo == "nao_encontrado"
+    assert registradas[0].method == "DELETE"

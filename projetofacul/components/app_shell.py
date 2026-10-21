@@ -8,6 +8,16 @@ from styles.theme import apply_theme_tokens
 
 APP_SHELL_CSS = apply_theme_tokens("""
 html, body, #root { min-height: 100%; margin: 0; }
+/* escala de destaque do Radix trocada pelo azul do projeto (#2B8CFF) */
+.radix-themes {
+  --accent-1: #0B1626; --accent-2: #0E1B30; --accent-3: rgba(43,140,255,.12); --accent-4: rgba(43,140,255,.16);
+  --accent-5: rgba(43,140,255,.22); --accent-6: rgba(43,140,255,.30); --accent-7: rgba(43,140,255,.42);
+  --accent-8: rgba(43,140,255,.60); --accent-9: __PRIMARY__; --accent-10: __PRIMARY_HOVER__;
+  --accent-11: #8EBEFF; --accent-12: #DCEBFF; --accent-contrast: #FFFFFF;
+  --accent-a3: rgba(43,140,255,.12); --accent-a4: rgba(43,140,255,.16); --accent-a5: rgba(43,140,255,.22);
+  --accent-a6: rgba(43,140,255,.30); --accent-a7: rgba(43,140,255,.42); --accent-a8: rgba(43,140,255,.60);
+  --accent-a9: __PRIMARY__; --accent-a11: #8EBEFF; --focus-8: __PRIMARY__;
+}
 body { background: __BACKGROUND__; }
 .app-page {
   min-height: 100vh; color: __TEXT_PRIMARY__; background: __BACKGROUND__;
@@ -52,6 +62,16 @@ body { background: __BACKGROUND__; }
 }
 .app-main { width: min(1160px, 100%); margin: 0 auto; padding: 28px 24px 64px; }
 .app-status { display: grid; place-items: center; min-height: 40vh; color: __TEXT_SECONDARY__; }
+.app-status-error { display: grid; justify-items: center; gap: 16px; text-align: center; }
+.app-status-retry {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px;
+  border: 1px solid rgba(43,140,255,.45); border-radius: 12px; color: __TEXT_PRIMARY__;
+  background: rgba(43,140,255,.12); font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer;
+  transition: background 150ms ease, transform 150ms ease;
+}
+.app-status-retry:hover { background: rgba(43,140,255,.2); }
+.app-status-retry:active { transform: scale(.98); }
+.app-status-retry:focus-visible { outline: 3px solid rgba(43,140,255,.65); outline-offset: 2px; }
 .app-placeholder-title { margin: 0 0 8px; font-size: 32px; font-weight: 800; }
 .app-placeholder-text { margin: 0; color: __TEXT_SECONDARY__; font-size: 16px; }
 @media (pointer: coarse) {
@@ -95,7 +115,18 @@ def session_guard(conteudo: rx.Component) -> rx.Component:
         rx.box(
             rx.cond(
                 SessaoState.erro_sessao != "",
-                rx.text(SessaoState.erro_sessao, role="status", aria_live="polite"),
+                rx.box(
+                    rx.text(SessaoState.erro_sessao, role="status", aria_live="polite"),
+                    rx.el.button(
+                        rx.icon("refresh-cw", size=16, aria_hidden="true"),
+                        "Tentar novamente",
+                        type="button",
+                        title="Recarrega a página e busca seus dados de novo",
+                        on_click=SessaoState.retry_session,
+                        class_name="app-status-retry",
+                    ),
+                    class_name="app-status-error",
+                ),
                 rx.spinner(size="3", aria_label="Carregando"),
             ),
             class_name="app-status",

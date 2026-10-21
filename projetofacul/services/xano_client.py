@@ -19,7 +19,11 @@ TIPOS_POR_STATUS = {
     404: "nao_encontrado",
     409: "conflito",
     422: "invalido",
+    # plano gratuito do Xano: 10 requisições a cada 20 segundos
+    429: "limite_requisicoes",
 }
+
+MENSAGEM_LIMITE_REQUISICOES = "Muitas ações em pouco tempo. Aguarde alguns segundos e tente novamente."
 
 
 class XanoError(Exception):
@@ -110,3 +114,22 @@ async def change_password(token: str, senha_atual: str, nova_senha: str) -> dict
         token=token,
         corpo={"senha_atual": senha_atual, "nova_senha": nova_senha},
     )
+
+
+async def list_refeicoes(token: str) -> list[dict[str, Any]]:
+    resposta = await send_request("GET", "refeicoes/me", token=token)
+    return resposta if isinstance(resposta, list) else []
+
+
+async def create_refeicao(token: str, data_refeicao: str, tipo: str, descricao: str) -> dict[str, Any]:
+    # só estes três campos: o dono vem do token e os valores nutricionais, da IA (futura)
+    return await send_request(
+        "POST",
+        "refeicoes/me",
+        token=token,
+        corpo={"data_refeicao": data_refeicao, "tipo": tipo, "descricao": descricao},
+    )
+
+
+async def delete_refeicao(token: str, refeicao_id: int) -> dict[str, Any]:
+    return await send_request("DELETE", f"refeicoes/me/{int(refeicao_id)}", token=token)

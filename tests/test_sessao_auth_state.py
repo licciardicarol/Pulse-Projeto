@@ -7,8 +7,8 @@ from reflex.state import State
 import projetofacul.projetofacul  # noqa: F401  registra as páginas e os States
 from projetofacul.auth_page import AuthState
 from projetofacul.services import xano_client
-from projetofacul.services.xano_client import XanoError
-from projetofacul.states.sessao_state import SessaoState
+from projetofacul.services.xano_client import MENSAGEM_LIMITE_REQUISICOES, XanoError
+from projetofacul.states.sessao_state import VALIDADE_CONFIRMACAO_SEGUNDOS, SessaoState
 
 USUARIO = {"id": 7, "nome": "Ana Souza", "email": "ana@exemplo.com"}
 
@@ -139,6 +139,86 @@ def test_xano_indisponivel_mostra_erro_sem_derrubar_sessao(raiz, xano):
     assert sessao.token == "tok-123"
     assert sessao.sessao_verificada is False
     assert "Tente novamente" in sessao.erro_sessao
+
+
+def confirm_session(raiz: State, rota: str = "/treinos") -> SessaoState:
+    sessao = get_substate(raiz, SessaoState)
+    sessao.token = "tok-123"
+    set_route(raiz, rota)
+    run_events(SessaoState.ensure_session.fn(sessao))
+    return sessao
+
+
+def count_calls(chamadas: list, nome: str) -> int:
+    return sum(1 for chamada in chamadas if chamada[0] == nome)
+
+
+def test_confirmacao_recente_e_reaproveitada_entre_paginas(raiz, xano):
+    respostas, chamadas = xano
+    respostas["get_perfil"]["onboarding_concluido"] = True
+    sessao = confirm_session(raiz)
+
+    for rota in ("/refeicoes", "/sono", "/peso", "/perfil"):
+        set_route(raiz, rota)
+        eventos = run_events(SessaoState.ensure_session.fn(sessao))
+        assert get_redirects(eventos) == []
+        assert sessao.sessao_verificada is True
+
+    assert count_calls(chamadas, "get_me") == 1
+    assert count_calls(chamadas, "get_perfil") == 1
+
+
+def test_confirmacao_expirada_consulta_o_xano_de_novo(raiz, xano):
+    respostas, chamadas = xano
+    respostas["get_perfil"]["onboarding_concluido"] = True
+    sessao = confirm_session(raiz)
+    sessao._verificada_em -= VALIDADE_CONFIRMACAO_SEGUNDOS + 1
+
+    run_events(SessaoState.ensure_session.fn(sessao))
+
+    assert count_calls(chamadas, "get_me") == 2
+
+
+def test_token_diferente_nao_usa_confirmacao_anterior(raiz, xano):
+    respostas, chamadas = xano
+    respostas["get_perfil"]["onboarding_concluido"] = True
+    sessao = confirm_session(raiz)
+    sessao.token = "tok-outro"
+
+    run_events(SessaoState.ensure_session.fn(sessao))
+
+    assert count_calls(chamadas, "get_me") == 2
+
+
+def test_sair_descarta_confirmacao(raiz, xano):
+    respostas, chamadas = xano
+    respostas["get_perfil"]["onboarding_concluido"] = True
+    sessao = confirm_session(raiz)
+
+    SessaoState.logout.fn(sessao)
+    confirm_session(raiz)
+
+    assert count_calls(chamadas, "get_me") == 2
+
+
+def test_limite_do_xano_mostra_mensagem_e_mantem_token(raiz, xano):
+    respostas, _ = xano
+    respostas["get_me"] = XanoError("limite_requisicoes")
+    sessao = confirm_session(raiz, "/refeicoes")
+
+    assert sessao.erro_sessao == MENSAGEM_LIMITE_REQUISICOES
+    assert sessao.token == "tok-123"
+    assert sessao.sessao_verificada is False
+
+
+def test_tentar_novamente_recarrega_a_pagina(raiz):
+    sessao = get_substate(raiz, SessaoState)
+    sessao.erro_sessao = MENSAGEM_LIMITE_REQUISICOES
+
+    evento = SessaoState.retry_session.fn(sessao)
+
+    assert "window.location.reload()" in str(evento)
+    assert sessao.erro_sessao == ""
 
 
 def test_logado_em_login_vai_para_o_app(raiz, xano):

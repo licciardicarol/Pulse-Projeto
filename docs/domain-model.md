@@ -142,23 +142,31 @@ O sistema DEVE definir uma entidade `Sono` associada a um Perfil, contendo:
 ---
 
 ### Requirement: Refeição (Meal)
-O sistema DEVE definir uma entidade `Refeição` associada a um Perfil,
-contendo:
+O sistema DEVE definir uma entidade `Refeição` (tabela `Refeicoes`) associada
+ao usuário, contendo:
 - id: identificador único
-- profile_id: referência ao Perfil
-- data_refeicao: datetime
-- tipo: enum (Café da manhã, Almoço, Café da tarde, Jantar) — opcional
-- descricao: string — opcional (descrição livre da refeição/alimentos)
-- calorias: decimal(5,2)
-- proteinas: string (até 25 caracteres)
-- carboidratos: string (até 25 caracteres)
-- gorduras: string (até 25 caracteres)
-- analise_ia: text — opcional (resultado de análise gerada por IA sobre a refeição)
+- user_id: referência ao `User` (dono; preenchido só pelo servidor, a partir
+  do token)
+- data_refeicao: date (só a data; o período do dia vem do `tipo`; nunca futura)
+- tipo: enum (Café da manhã, Almoço, Café da tarde, Jantar) — obrigatório na
+  interface
+- descricao: text (3 a 500 caracteres) — descrição livre dos alimentos
+- calorias: decimal (kcal) — opcional, preenchido apenas pela análise por IA
+- proteinas: decimal (g) — opcional, idem
+- carboidratos: decimal (g) — opcional, idem
+- gorduras: decimal (g) — opcional, idem
+- analise_ia: text — opcional; vazio significa "aguardando análise"
+
+> Decisão de 2026-10-21: o Xano devolve decimais vazios como `0`; por isso
+> uma refeição só é considerada analisada quando `analise_ia` está
+> preenchido, e os totais do dia somam apenas refeições analisadas. O app
+> nunca estima nem envia valores nutricionais.
 
 #### Scenario: Registro de refeição
-- **Given** um usuário registra uma refeição
-- **When** ele informa tipo, calorias, proteínas, carboidratos e gorduras
-- **Then** o sistema salva a Refeição vinculada ao seu Perfil
+- **Given** um usuário autenticado descreve o que comeu
+- **When** ele informa data, tipo e descrição
+- **Then** o sistema salva a Refeição vinculada ao seu `user_id`, sem valores
+  nutricionais, aguardando análise
 
 ---
 
@@ -211,7 +219,7 @@ Perfil, e opcionalmente a um RegistroDePeso, contendo:
 - **Perfil 1:N Treino**
 - **Treino 1:N Exercicio**
 - **Perfil 1:N Sono**
-- **Perfil 1:N Refeição**
+- **User 1:N Refeição** (via `Refeicoes.user_id`)
 - **Perfil 1:N RegistroDePeso**
 - **Perfil 1:N MedidaCorporal**
 - **RegistroDePeso 1:N MedidaCorporal** (opcional)
@@ -222,7 +230,7 @@ erDiagram
     PERFIL ||--o{ TREINO : registra
     TREINO ||--o{ EXERCICIO : contem
     PERFIL ||--o{ SONO : registra
-    PERFIL ||--o{ REFEICAO : registra
+    USER ||--o{ REFEICAO : registra
     PERFIL ||--o{ REGISTRO_DE_PESO : registra
     PERFIL ||--o{ MEDIDA_CORPORAL : registra
     REGISTRO_DE_PESO ||--o{ MEDIDA_CORPORAL : referencia
@@ -230,8 +238,9 @@ erDiagram
 
 ## Business Rules / Invariants
 
-- Todo registro (Treino, Sono, Refeição, RegistroDePeso, MedidaCorporal)
-  DEVE estar vinculado a um Perfil existente (`profile_id`)
+- Todo registro (Treino, Sono, RegistroDePeso, MedidaCorporal) DEVE estar
+  vinculado a um Perfil existente (`profile_id`); a Refeição é vinculada
+  diretamente ao `User` (`user_id`), por decisão de 2026-10-20
 - Todo `Exercicio` DEVE estar vinculado a um `Treino` existente (`treino_id`)
 - `fim` DEVE ser posterior a `inicio` (Treino) e `fim_sono` DEVE ser
   posterior a `inicio_sono` (Sono)
