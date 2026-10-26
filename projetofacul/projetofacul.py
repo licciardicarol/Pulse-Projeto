@@ -5,9 +5,11 @@ import reflex as rx
 from projetofacul.auth_page import AuthState, pagina_autenticacao
 from projetofacul.landing_page import landing_page
 from projetofacul.pages.perfil_page import perfil_page
+from projetofacul.pages.peso_page import peso_page
 from projetofacul.pages.refeicoes_page import refeicoes_page
 from projetofacul.pages.placeholder_page import AREAS_EM_CONSTRUCAO, build_placeholder_page
 from projetofacul.states.perfil_state import PerfilState
+from projetofacul.states.peso_state import PesoState
 from projetofacul.states.refeicoes_state import RefeicoesState
 from projetofacul.states.sessao_state import SessaoState
 
@@ -51,6 +53,13 @@ app.add_page(
     route="/refeicoes",
     title="Refeições | Pulse",
     on_load=[SessaoState.ensure_session, RefeicoesState.start_page],
+)
+
+app.add_page(
+    peso_page,
+    route="/peso",
+    title="Peso | Pulse",
+    on_load=[SessaoState.ensure_session, PesoState.start_page],
 )
 
 for rota, (titulo, descricao) in AREAS_EM_CONSTRUCAO.items():

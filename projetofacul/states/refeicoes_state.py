@@ -18,7 +18,7 @@ from projetofacul.logic.refeicoes import (
     validate_refeicao,
 )
 from projetofacul.services import xano_client
-from projetofacul.services.xano_client import MENSAGEM_LIMITE_REQUISICOES, XanoError
+from projetofacul.services.xano_client import XanoError, get_failure_message
 from projetofacul.states.sessao_state import SessaoState
 
 MENSAGEM_FALHA_LISTAR = "Não foi possível carregar suas refeições agora."
@@ -35,11 +35,6 @@ CAMPOS_FORMULARIO = ("data_refeicao", "tipo", "descricao")
 
 # toast verde de sucesso, no padrão escuro do app (canto superior direito, ~3s)
 ESTILO_TOAST_SUCESSO = {"background": "#0F2A22", "border": "1px solid rgba(52,211,153,.45)", "color": "#D1FAE5"}
-
-
-def get_failure_message(erro: XanoError, mensagem_padrao: str) -> str:
-    # o limite do Xano tem mensagem própria: basta esperar alguns segundos
-    return MENSAGEM_LIMITE_REQUISICOES if erro.tipo == "limite_requisicoes" else mensagem_padrao
 
 
 class RefeicoesState(rx.State):

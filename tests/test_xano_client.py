@@ -149,3 +149,27 @@ def test_excluir_refeicao_de_outro_usuario_vira_nao_encontrado(requisicoes):
 
     assert erro.value.tipo == "nao_encontrado"
     assert registradas[0].method == "DELETE"
+
+
+def test_peso_envia_bearer_e_so_peso_e_data_horario(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["registro_peso/me"] = httpx.Response(200, json={"id": 3})
+
+    asyncio.run(xano_client.create_registro_peso("tok-123", 70.5, 1792787880000))
+
+    assert registradas[0].method == "POST"
+    assert registradas[0].headers["Authorization"] == "Bearer tok-123"
+    assert json.loads(registradas[0].content) == {"peso": 70.5, "data_horario": 1792787880000}
+
+
+def test_listar_e_excluir_registros_de_peso(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["registro_peso/me"] = httpx.Response(200, json=[{"id": 1}])
+    respostas["registro_peso/me/7"] = httpx.Response(404, json={"message": "Not Found."})
+
+    assert asyncio.run(xano_client.list_registros_peso("tok-123")) == [{"id": 1}]
+    with pytest.raises(XanoError) as erro:
+        asyncio.run(xano_client.delete_registro_peso("tok-123", 7))
+
+    assert erro.value.tipo == "nao_encontrado"
+    assert registradas[1].method == "DELETE"

@@ -11,7 +11,6 @@ AREAS_EM_CONSTRUCAO: dict[str, tuple[str, str]] = {
     "/inicio": ("Início", "Seu resumo do dia vai aparecer aqui."),
     "/treinos": ("Treinos", "O registro de treinos está em construção."),
     "/sono": ("Sono", "O registro de sono está em construção."),
-    "/peso": ("Peso", "O registro de peso está em construção."),
     "/relatorios": ("Relatórios", "Os relatórios de evolução estão em construção."),
 }
 

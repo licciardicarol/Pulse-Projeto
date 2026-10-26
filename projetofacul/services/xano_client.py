@@ -26,6 +26,11 @@ TIPOS_POR_STATUS = {
 MENSAGEM_LIMITE_REQUISICOES = "Muitas ações em pouco tempo. Aguarde alguns segundos e tente novamente."
 
 
+def get_failure_message(erro: "XanoError", mensagem_padrao: str) -> str:
+    # o limite do Xano tem mensagem própria: basta esperar alguns segundos
+    return MENSAGEM_LIMITE_REQUISICOES if erro.tipo == "limite_requisicoes" else mensagem_padrao
+
+
 class XanoError(Exception):
     """Falha de integração identificada apenas pelo tipo."""
 
@@ -133,3 +138,19 @@ async def create_refeicao(token: str, data_refeicao: str, tipo: str, descricao: 
 
 async def delete_refeicao(token: str, refeicao_id: int) -> dict[str, Any]:
     return await send_request("DELETE", f"refeicoes/me/{int(refeicao_id)}", token=token)
+
+
+async def list_registros_peso(token: str) -> list[dict[str, Any]]:
+    resposta = await send_request("GET", "registro_peso/me", token=token)
+    return resposta if isinstance(resposta, list) else []
+
+
+async def create_registro_peso(token: str, peso: float, data_horario: int) -> dict[str, Any]:
+    # só estes dois campos: o dono vem do token; data_horario em milissegundos (UTC)
+    return await send_request(
+        "POST", "registro_peso/me", token=token, corpo={"peso": peso, "data_horario": int(data_horario)}
+    )
+
+
+async def delete_registro_peso(token: str, registro_id: int) -> dict[str, Any]:
+    return await send_request("DELETE", f"registro_peso/me/{int(registro_id)}", token=token)

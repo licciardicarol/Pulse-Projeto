@@ -171,22 +171,31 @@ ao usuário, contendo:
 ---
 
 ### Requirement: Registro de Peso (Weight Log)
-O sistema DEVE definir uma entidade `RegistroDePeso` associada a um
-Perfil, contendo:
+O sistema DEVE definir uma entidade `RegistroDePeso` (tabela `Registro_Peso`
+do Xano) associada ao `User`, contendo:
 - id: identificador único
-- profile_id: referência ao Perfil
-- peso: decimal(5,2)
-- data_horario: datetime
-- observacoes: string — opcional
+- user_id: referência ao `User` (dono; preenchido só pelo servidor, a partir
+  do token) — decisão de 2026-10-23, no lugar do antigo `profile_id`
+- peso: decimal(5,2), em kg, de 20 a 400 com no máximo 2 casas decimais
+- data_horario: timestamp (guardado em UTC; o app informa e exibe no horário
+  de Brasília, UTC−03:00)
+- observacoes: string — opcional; planejado, ainda não existe na tabela
+
+> Futuro: o cartão "Falta para a meta" vai exigir um peso-alvo (ex.: campo
+> `peso_meta` decimal), que ainda não existe. Até lá, nada é calculado.
 
 #### Scenario: Registro de peso
 - **Given** um usuário se pesa
 - **When** ele registra o valor e a data/hora
-- **Then** o sistema salva um novo RegistroDePeso vinculado ao seu Perfil
+- **Then** o sistema salva um novo RegistroDePeso vinculado ao seu User
 
 ---
 
 ### Requirement: Medida Corporal (Body Measurement)
+> Planejado: ainda não existe tabela de medidas no Xano. O switch "Registrar
+> medidas corporais" do Perfil só guarda a preferência (`medidas`) até um
+> delta futuro criar a tabela (com dono, `peso_id` opcional e os campos abaixo).
+
 O sistema DEVE definir uma entidade `MedidaCorporal` associada a um
 Perfil, e opcionalmente a um RegistroDePeso, contendo:
 - id: identificador único
@@ -220,7 +229,7 @@ Perfil, e opcionalmente a um RegistroDePeso, contendo:
 - **Treino 1:N Exercicio**
 - **Perfil 1:N Sono**
 - **User 1:N Refeição** (via `Refeicoes.user_id`)
-- **Perfil 1:N RegistroDePeso**
+- **User 1:N RegistroDePeso** (via `Registro_Peso.user_id`)
 - **Perfil 1:N MedidaCorporal**
 - **RegistroDePeso 1:N MedidaCorporal** (opcional)
 
@@ -231,16 +240,17 @@ erDiagram
     TREINO ||--o{ EXERCICIO : contem
     PERFIL ||--o{ SONO : registra
     USER ||--o{ REFEICAO : registra
-    PERFIL ||--o{ REGISTRO_DE_PESO : registra
+    USER ||--o{ REGISTRO_DE_PESO : registra
     PERFIL ||--o{ MEDIDA_CORPORAL : registra
     REGISTRO_DE_PESO ||--o{ MEDIDA_CORPORAL : referencia
 ```
 
 ## Business Rules / Invariants
 
-- Todo registro (Treino, Sono, RegistroDePeso, MedidaCorporal) DEVE estar
-  vinculado a um Perfil existente (`profile_id`); a Refeição é vinculada
-  diretamente ao `User` (`user_id`), por decisão de 2026-10-20
+- Todo registro (Treino, Sono, MedidaCorporal) DEVE estar vinculado a um
+  Perfil existente (`profile_id`); a Refeição e o RegistroDePeso são
+  vinculados diretamente ao `User` (`user_id`), por decisões de 2026-10-20 e
+  2026-10-23
 - Todo `Exercicio` DEVE estar vinculado a um `Treino` existente (`treino_id`)
 - `fim` DEVE ser posterior a `inicio` (Treino) e `fim_sono` DEVE ser
   posterior a `inicio_sono` (Sono)

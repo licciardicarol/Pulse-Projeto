@@ -1,6 +1,7 @@
 // Query all Treino records
 query treino verb=GET {
   api_group = "Luna's Workspace"
+  auth = "user"
 
   input {
   }
