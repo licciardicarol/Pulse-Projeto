@@ -6,6 +6,7 @@ from projetofacul.components.navbar import ITENS_NAVBAR, navbar
 from projetofacul.logic.navegacao import ROTAS_PRIVADAS
 from projetofacul.pages.perfil_page import perfil_page
 from projetofacul.pages.refeicoes_page import refeicoes_page
+from projetofacul.pages.treinos_page import treinos_page
 from projetofacul.pages.placeholder_page import AREAS_EM_CONSTRUCAO
 from projetofacul.projetofacul import app, home, redirect_page
 from projetofacul.states.sessao_state import SessaoState
@@ -52,13 +53,19 @@ def test_perfil_tem_pagina_propria_e_carrega_dados_apos_guarda():
 
 
 def test_placeholders_cobrem_as_demais_rotas_privadas():
-    assert set(AREAS_EM_CONSTRUCAO) == set(ROTAS_PRIVADAS) - {"/perfil", "/refeicoes"}
+    assert set(AREAS_EM_CONSTRUCAO) == set(ROTAS_PRIVADAS) - {"/perfil", "/refeicoes", "/treinos"}
 
 
 def test_refeicoes_tem_pagina_propria_e_carrega_apos_guarda():
     assert get_routes()["refeicoes"] is refeicoes_page
     assert get_on_load_names("refeicoes") == ["ensure_session", "start_page"]
     assert "/refeicoes" not in AREAS_EM_CONSTRUCAO
+
+
+def test_treinos_tem_pagina_propria_e_carrega_apos_guarda():
+    assert get_routes()["treinos"] is treinos_page
+    assert get_on_load_names("treinos") == ["ensure_session", "start_page"]
+    assert "/treinos" not in AREAS_EM_CONSTRUCAO
 
 
 def test_navbar_tem_itens_sem_social_e_marca_item_ativo():

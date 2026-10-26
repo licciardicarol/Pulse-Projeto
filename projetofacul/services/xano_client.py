@@ -133,3 +133,17 @@ async def create_refeicao(token: str, data_refeicao: str, tipo: str, descricao: 
 
 async def delete_refeicao(token: str, refeicao_id: int) -> dict[str, Any]:
     return await send_request("DELETE", f"refeicoes/me/{int(refeicao_id)}", token=token)
+
+
+async def list_treinos(token: str) -> list[dict[str, Any]]:
+    resposta = await send_request("GET", "treinos/me", token=token)
+    return resposta if isinstance(resposta, list) else []
+
+
+async def create_treino(token: str, dados: dict[str, Any]) -> dict[str, Any]:
+    # `dados` vem de `build_treino_payload`: o dono vem do token, nunca do app
+    return await send_request("POST", "treinos/me", token=token, corpo=dados)
+
+
+async def delete_treino(token: str, treino_id: int) -> dict[str, Any]:
+    return await send_request("DELETE", f"treinos/me/{int(treino_id)}", token=token)

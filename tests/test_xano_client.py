@@ -149,3 +149,33 @@ def test_excluir_refeicao_de_outro_usuario_vira_nao_encontrado(requisicoes):
 
     assert erro.value.tipo == "nao_encontrado"
     assert registradas[0].method == "DELETE"
+
+
+def test_treinos_enviam_bearer_e_so_campos_permitidos(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["treinos/me"] = httpx.Response(200, json={"id": 5})
+    corpo = {"data": "2026-10-26", "duracao_minutos": 60, "nome": "Peito e tríceps", "intensidade": "Alta"}
+
+    asyncio.run(xano_client.create_treino("tok-123", corpo))
+
+    assert registradas[0].method == "POST"
+    assert registradas[0].headers["Authorization"] == "Bearer tok-123"
+    assert json.loads(registradas[0].content) == corpo
+
+
+def test_listar_treinos_devolve_lista(requisicoes):
+    _, respostas = requisicoes
+    respostas["treinos/me"] = httpx.Response(200, json=[{"id": 1}, {"id": 2}])
+
+    assert asyncio.run(xano_client.list_treinos("tok-123")) == [{"id": 1}, {"id": 2}]
+
+
+def test_excluir_treino_de_outro_usuario_vira_nao_encontrado(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["treinos/me/9"] = httpx.Response(404, json={"message": "Not Found."})
+
+    with pytest.raises(XanoError) as erro:
+        asyncio.run(xano_client.delete_treino("tok-123", 9))
+
+    assert erro.value.tipo == "nao_encontrado"
+    assert registradas[0].method == "DELETE"
