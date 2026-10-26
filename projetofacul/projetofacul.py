@@ -7,11 +7,13 @@ from projetofacul.landing_page import landing_page
 from projetofacul.pages.perfil_page import perfil_page
 from projetofacul.pages.peso_page import peso_page
 from projetofacul.pages.refeicoes_page import refeicoes_page
+from projetofacul.pages.treinos_page import treinos_page
 from projetofacul.pages.placeholder_page import AREAS_EM_CONSTRUCAO, build_placeholder_page
 from projetofacul.states.perfil_state import PerfilState
 from projetofacul.states.peso_state import PesoState
 from projetofacul.states.refeicoes_state import RefeicoesState
 from projetofacul.states.sessao_state import SessaoState
+from projetofacul.states.treinos_state import TreinosState
 
 
 def home() -> rx.Component:
@@ -53,6 +55,13 @@ app.add_page(
     route="/refeicoes",
     title="Refeições | Pulse",
     on_load=[SessaoState.ensure_session, RefeicoesState.start_page],
+)
+
+app.add_page(
+    treinos_page,
+    route="/treinos",
+    title="Treinos | Pulse",
+    on_load=[SessaoState.ensure_session, TreinosState.start_page],
 )
 
 app.add_page(

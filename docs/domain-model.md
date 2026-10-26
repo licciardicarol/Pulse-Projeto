@@ -71,34 +71,48 @@ obrigatórios (modalidades: pelo menos uma), validados no Reflex e no Xano.
 ---
 
 ### Requirement: Treino (Workout session)
-O sistema DEVE definir uma entidade `Treino` associada a um Perfil,
-representando uma sessão de treino, contendo:
+O sistema DEVE definir uma entidade `Treino` (tabela `Treinos`) associada ao
+usuário, representando uma sessão de treino, contendo:
 - id: identificador único
-- profile_id: referência ao Perfil
-- categoria: enum (Superior, Inferior, Full body)
-- inicio: datetime
-- fim: datetime
-- intensidade: enum (Leve, Moderada, Intensa) — opcional
-- anotacoes: string — opcional
-- calorias_estimadas: decimal(5,2) — opcional
-- analise_ia: text — opcional (resultado de análise gerada por IA sobre o treino)
-- data: date
+- user_id: referência ao `User` (dono; preenchido só pelo servidor, a partir
+  do token)
+- data: date (dia do treino; nunca futura no fuso America/Sao_Paulo) —
+  obrigatório
+- duracao_minutos: int (duração em minutos, de 1 a 1440) — obrigatório
+- nome: text (2 a 60 caracteres, ex.: "Peito e tríceps") — obrigatório
+- categoria: text livre (até 40 caracteres, ex.: "Musculação", "Corrida") —
+  opcional
+- intensidade: text livre (até 20 caracteres, ex.: "Leve", "Moderada",
+  "Alta") — opcional
+- observacoes: text (até 500 caracteres) — opcional
+- tipo: enum (Superior, Inferior, Full body (corpo todo)) — opcional, legado;
+  não usado pela tela de Treinos
+- inicio, fim: datetime — opcionais, legados; não usados pela tela de Treinos
+- carga: decimal, repeticoes: int — opcionais, legados; pertencem
+  conceitualmente ao `Exercicio` e não são usados pela tela de Treinos
 
-> Alteração em relação à versão anterior deste documento: carga e
-> repetições saem do Treino e passam a pertencer à entidade `Exercicio`
-> abaixo, já que um Treino pode conter múltiplos exercícios (conforme
-> `project-overview.md`). Confirmar se essa estrutura já existe assim no
-> Xano ou se precisa ser criada.
+> Decisão de 2026-10-26: a tabela `Treinos` do Xano já tinha `user_id`,
+> `nome`, `duracao_minutos`, `categoria`, `intensidade` e `observacoes` (todos
+> opcionais no banco); a obrigatoriedade e os limites são garantidos pelo
+> endpoint `POST treinos/me` e pelo app. Categoria e intensidade são texto
+> livre. O Treino é vinculado diretamente ao `User` (mesmo padrão da
+> Refeição). A duração é informada em minutos, e não derivada de
+> `inicio`/`fim`. A ordenação é por `data` desc e, no mesmo dia, por `id`
+> desc. `calorias_estimadas` e `analise_ia` não existem no Xano e ficam fora
+> do MVP.
 
 #### Scenario: Registro de treino
-- **Given** um usuário inicia uma sessão de treino
-- **When** ele registra categoria, início, fim e (opcionalmente) intensidade
-  e anotações
-- **Then** o sistema salva o Treino vinculado ao seu Perfil
+- **Given** um usuário autenticado terminou uma sessão de treino
+- **When** ele informa data, duração e nome e, opcionalmente, categoria,
+  intensidade e observações
+- **Then** o sistema salva o Treino vinculado ao seu `user_id`
 
 ---
 
 ### Requirement: Exercício (Exercise)
+> Planejada: a tabela `Exercicio` ainda NÃO existe no Xano (verificado em
+> 2026-10-26) e está fora do escopo do MVP de Treinos.
+
 O sistema DEVE definir uma entidade `Exercicio` associada a um Treino,
 contendo:
 - id: identificador único
@@ -225,8 +239,8 @@ Perfil, e opcionalmente a um RegistroDePeso, contendo:
 ## Relationships
 
 - **User 1:1 Perfil** (via `Perfil.user_id`, único)
-- **Perfil 1:N Treino**
-- **Treino 1:N Exercicio**
+- **User 1:N Treino** (via `Treinos.user_id`)
+- **Treino 1:N Exercicio** (planejada)
 - **Perfil 1:N Sono**
 - **User 1:N Refeição** (via `Refeicoes.user_id`)
 - **User 1:N RegistroDePeso** (via `Registro_Peso.user_id`)
@@ -236,7 +250,7 @@ Perfil, e opcionalmente a um RegistroDePeso, contendo:
 ```mermaid
 erDiagram
     USER ||--|| PERFIL : possui
-    PERFIL ||--o{ TREINO : registra
+    USER ||--o{ TREINO : registra
     TREINO ||--o{ EXERCICIO : contem
     PERFIL ||--o{ SONO : registra
     USER ||--o{ REFEICAO : registra
@@ -247,12 +261,14 @@ erDiagram
 
 ## Business Rules / Invariants
 
-- Todo registro (Treino, Sono, MedidaCorporal) DEVE estar vinculado a um
-  Perfil existente (`profile_id`); a Refeição e o RegistroDePeso são
-  vinculados diretamente ao `User` (`user_id`), por decisões de 2026-10-20 e
-  2026-10-23
+- Todo registro (Sono, MedidaCorporal) DEVE estar vinculado a um Perfil
+  existente (`profile_id`); a Refeição, o RegistroDePeso e o Treino são
+  vinculados diretamente ao `User` (`user_id`), por decisões de 2026-10-20,
+  2026-10-23 e 2026-10-26
+- `duracao_minutos` do Treino DEVE estar entre 1 e 1440, e a `data` do Treino
+  NÃO PODE ser posterior a hoje no fuso America/Sao_Paulo
 - Todo `Exercicio` DEVE estar vinculado a um `Treino` existente (`treino_id`)
-- `fim` DEVE ser posterior a `inicio` (Treino) e `fim_sono` DEVE ser
+- `fim` DEVE ser posterior a `inicio` (Treino, quando preenchidos) e `fim_sono` DEVE ser
   posterior a `inicio_sono` (Sono)
 - `peso`, `calorias`, `carga`, `repeticoes`, `series` DEVEM ser valores não negativos
 - Cada usuário só pode visualizar e editar seus próprios registros (RLS —
@@ -266,7 +282,8 @@ erDiagram
 
 - **User**: conta de acesso (nome, e-mail e senha) usada na autenticação
 - **Perfil**: dados de personalização do usuário dentro do domínio do Pulse
-- **Treino**: sessão de treino, que agrupa um ou mais exercícios
+- **Treino**: sessão de treino (data, duração, nome, categoria, intensidade
+  e observações); no futuro agrupará um ou mais exercícios
 - **Exercício**: um exercício individual dentro de um Treino, com suas
   próprias séries, repetições e carga
 - **MedidaCorporal**: conjunto de medidas corporais, podendo ou não estar
