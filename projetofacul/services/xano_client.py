@@ -133,3 +133,42 @@ async def create_refeicao(token: str, data_refeicao: str, tipo: str, descricao: 
 
 async def delete_refeicao(token: str, refeicao_id: int) -> dict[str, Any]:
     return await send_request("DELETE", f"refeicoes/me/{int(refeicao_id)}", token=token)
+
+
+async def list_sono(token: str) -> list[dict[str, Any]]:
+    """Registros de sono do usuário; também é a fonte do resumo para recomendações e Relatórios."""
+    resposta = await send_request("GET", "sono/me", token=token)
+    return resposta if isinstance(resposta, list) else []
+
+
+def build_sono_body(inicio_sono: int, fim_sono: int, qualidade_sono: int, observacoes: str | None) -> dict[str, Any]:
+    # o dono vem do token e a duração é calculada pelo servidor
+    return {
+        "inicio_sono": int(inicio_sono),
+        "fim_sono": int(fim_sono),
+        "qualidade_sono": int(qualidade_sono),
+        "observacoes": observacoes,
+    }
+
+
+async def create_sono(
+    token: str, inicio_sono: int, fim_sono: int, qualidade_sono: int, observacoes: str | None
+) -> dict[str, Any]:
+    return await send_request(
+        "POST", "sono/me", token=token, corpo=build_sono_body(inicio_sono, fim_sono, qualidade_sono, observacoes)
+    )
+
+
+async def update_sono(
+    token: str, sono_id: int, inicio_sono: int, fim_sono: int, qualidade_sono: int, observacoes: str | None
+) -> dict[str, Any]:
+    return await send_request(
+        "PATCH",
+        f"sono/me/{int(sono_id)}",
+        token=token,
+        corpo=build_sono_body(inicio_sono, fim_sono, qualidade_sono, observacoes),
+    )
+
+
+async def delete_sono(token: str, sono_id: int) -> dict[str, Any]:
+    return await send_request("DELETE", f"sono/me/{int(sono_id)}", token=token)

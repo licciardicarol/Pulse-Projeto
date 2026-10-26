@@ -118,15 +118,23 @@ contendo:
 ---
 
 ### Requirement: Sono (Sleep)
-O sistema DEVE definir uma entidade `Sono` associada a um Perfil, contendo:
+O sistema DEVE definir uma entidade `Sono` (tabela `Sono`) associada ao
+usuário, contendo:
 - id: identificador único
-- profile_id: referência ao Perfil
-- tipo_sono: enum (Principal, Soneca) — opcional, permite múltiplos
-  períodos de sono no mesmo dia
-- inicio_sono: datetime
-- fim_sono: datetime
-- qualidade_sono: enum (Muito ruim, Ruim, Regular, Bom, Muito bom) — opcional
-- observacoes: string — opcional
+- user_id: referência ao `User` (dono; preenchido só pelo servidor, a partir
+  do token)
+- inicio_sono: datetime (UTC)
+- fim_sono: datetime (UTC, posterior ao início e nunca no futuro)
+- duracao_minutos: inteiro (15 a 1440) — calculado pelo servidor
+- qualidade_sono: inteiro de 1 a 5 (1 Muito ruim, 2 Ruim, 3 Regular, 4 Boa,
+  5 Muito boa; os rótulos ficam no app)
+- observacoes: string (até 500 caracteres) — opcional
+- created_at / updated_at: datetime
+- tipo_sono: enum (Principal, Soneca) — planejado, ainda não existe
+
+> Decisão de 2026-10-26 (change `registro-sono`): o Sono passa a ser vinculado
+> ao `user_id`, como a Refeição. Períodos do mesmo usuário não podem se
+> sobrepor (encostados são permitidos), o que já permite sonecas.
 
 #### Scenario: Registro de sono
 - **Given** um usuário quer registrar sua noite de sono
@@ -218,7 +226,7 @@ Perfil, e opcionalmente a um RegistroDePeso, contendo:
 - **User 1:1 Perfil** (via `Perfil.user_id`, único)
 - **Perfil 1:N Treino**
 - **Treino 1:N Exercicio**
-- **Perfil 1:N Sono**
+- **User 1:N Sono** (via `Sono.user_id`)
 - **User 1:N Refeição** (via `Refeicoes.user_id`)
 - **Perfil 1:N RegistroDePeso**
 - **Perfil 1:N MedidaCorporal**
@@ -229,7 +237,7 @@ erDiagram
     USER ||--|| PERFIL : possui
     PERFIL ||--o{ TREINO : registra
     TREINO ||--o{ EXERCICIO : contem
-    PERFIL ||--o{ SONO : registra
+    USER ||--o{ SONO : registra
     USER ||--o{ REFEICAO : registra
     PERFIL ||--o{ REGISTRO_DE_PESO : registra
     PERFIL ||--o{ MEDIDA_CORPORAL : registra
@@ -238,9 +246,10 @@ erDiagram
 
 ## Business Rules / Invariants
 
-- Todo registro (Treino, Sono, RegistroDePeso, MedidaCorporal) DEVE estar
-  vinculado a um Perfil existente (`profile_id`); a Refeição é vinculada
-  diretamente ao `User` (`user_id`), por decisão de 2026-10-20
+- Todo registro (Treino, RegistroDePeso, MedidaCorporal) DEVE estar
+  vinculado a um Perfil existente (`profile_id`); a Refeição e o Sono são
+  vinculados diretamente ao `User` (`user_id`), por decisões de 2026-10-20 e
+  2026-10-26
 - Todo `Exercicio` DEVE estar vinculado a um `Treino` existente (`treino_id`)
 - `fim` DEVE ser posterior a `inicio` (Treino) e `fim_sono` DEVE ser
   posterior a `inicio_sono` (Sono)

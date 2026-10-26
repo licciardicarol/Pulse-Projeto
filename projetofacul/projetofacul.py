@@ -7,9 +7,11 @@ from projetofacul.landing_page import landing_page
 from projetofacul.pages.perfil_page import perfil_page
 from projetofacul.pages.refeicoes_page import refeicoes_page
 from projetofacul.pages.placeholder_page import AREAS_EM_CONSTRUCAO, build_placeholder_page
+from projetofacul.pages.sono_page import sono_page
 from projetofacul.states.perfil_state import PerfilState
 from projetofacul.states.refeicoes_state import RefeicoesState
 from projetofacul.states.sessao_state import SessaoState
+from projetofacul.states.sono_state import SonoState
 
 
 def home() -> rx.Component:
@@ -51,6 +53,13 @@ app.add_page(
     route="/refeicoes",
     title="Refeições | Pulse",
     on_load=[SessaoState.ensure_session, RefeicoesState.start_page],
+)
+
+app.add_page(
+    sono_page,
+    route="/sono",
+    title="Sono | Pulse",
+    on_load=[SessaoState.ensure_session, SonoState.start_page],
 )
 
 for rota, (titulo, descricao) in AREAS_EM_CONSTRUCAO.items():

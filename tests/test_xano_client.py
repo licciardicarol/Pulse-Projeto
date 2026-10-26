@@ -149,3 +149,47 @@ def test_excluir_refeicao_de_outro_usuario_vira_nao_encontrado(requisicoes):
 
     assert erro.value.tipo == "nao_encontrado"
     assert registradas[0].method == "DELETE"
+
+
+def test_sono_envia_bearer_e_so_campos_permitidos(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["sono/me"] = httpx.Response(200, json={"id": 5})
+
+    asyncio.run(xano_client.create_sono("tok-123", 1000, 2000, 4, None))
+
+    assert registradas[0].method == "POST"
+    assert registradas[0].headers["Authorization"] == "Bearer tok-123"
+    assert json.loads(registradas[0].content) == {
+        "inicio_sono": 1000,
+        "fim_sono": 2000,
+        "qualidade_sono": 4,
+        "observacoes": None,
+    }
+
+
+def test_listar_sono_devolve_lista(requisicoes):
+    _, respostas = requisicoes
+    respostas["sono/me"] = httpx.Response(200, json=[{"id": 1}])
+
+    assert asyncio.run(xano_client.list_sono("tok-123")) == [{"id": 1}]
+
+
+def test_editar_sono_usa_patch_no_registro(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["sono/me/7"] = httpx.Response(200, json={"id": 7})
+
+    asyncio.run(xano_client.update_sono("tok-123", 7, 1000, 2000, 5, "ok"))
+
+    assert registradas[0].method == "PATCH"
+    assert json.loads(registradas[0].content)["qualidade_sono"] == 5
+
+
+def test_excluir_sono_de_outro_usuario_vira_nao_encontrado(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["sono/me/9"] = httpx.Response(404, json={"message": "Not Found."})
+
+    with pytest.raises(XanoError) as erro:
+        asyncio.run(xano_client.delete_sono("tok-123", 9))
+
+    assert erro.value.tipo == "nao_encontrado"
+    assert registradas[0].method == "DELETE"
