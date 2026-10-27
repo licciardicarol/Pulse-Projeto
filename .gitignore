@@ -58,4 +58,3 @@ reflex.log
 
 # --- Claude Code (config pessoal, não compartilhada) ---
 .claude/settings.local.json
-reflex.log
