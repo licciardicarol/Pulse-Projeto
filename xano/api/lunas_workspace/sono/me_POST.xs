@@ -16,34 +16,34 @@ query "sono/me" verb=POST {
       error_type = "inputerror"
       error = "Invalid sleep period."
     }
-
+  
     // o fim do sono não pode estar no futuro
     precondition ($input.fim_sono <= ("now"|to_timestamp)) {
       error_type = "inputerror"
       error = "Invalid sleep period."
     }
-
+  
     var $duracao_minutos {
       value = (($input.fim_sono - $input.inicio_sono) / 60000)|floor
     }
-
+  
     // de 15 minutos a 24 horas
     precondition ($duracao_minutos >= 15 && $duracao_minutos <= 1440) {
       error_type = "inputerror"
       error = "Invalid sleep duration."
     }
-
+  
     // sem sobreposição com outro registro do mesmo usuário (encostados são permitidos)
     db.query Sono {
       where = $db.Sono.user_id == $auth.id && $db.Sono.inicio_sono < $input.fim_sono && $db.Sono.fim_sono > $input.inicio_sono
       return = {type: "count"}
     } as $conflitos
-
+  
     precondition ($conflitos == 0) {
       error_type = "inputerror"
       error = "Overlapping sleep period."
     }
-
+  
     db.add Sono {
       data = {
         created_at     : "now"
@@ -59,4 +59,5 @@ query "sono/me" verb=POST {
   }
 
   response = $registro
+  guid = "xGOymUt1YgKogpq5UNilBE3aYVA"
 }

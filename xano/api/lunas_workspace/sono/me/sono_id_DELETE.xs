@@ -12,18 +12,18 @@ query "sono/me/{sono_id}" verb=DELETE {
       field_name = "id"
       field_value = $input.sono_id
     } as $registro
-
+  
     // registro inexistente ou de outro usuário: mesma resposta, sem revelar que existe
     precondition ($registro != null) {
       error_type = "notfound"
       error = "Not Found."
     }
-
+  
     precondition ($registro.user_id == $auth.id) {
       error_type = "notfound"
       error = "Not Found."
     }
-
+  
     db.del Sono {
       field_name = "id"
       field_value = $input.sono_id
@@ -31,4 +31,5 @@ query "sono/me/{sono_id}" verb=DELETE {
   }
 
   response = {sucesso: true}
+  guid = "h0QR6FxQ3KXkQGQkrZyVYHGvvZE"
 }

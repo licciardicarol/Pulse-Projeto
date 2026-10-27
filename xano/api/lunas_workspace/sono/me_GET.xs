@@ -15,4 +15,5 @@ query "sono/me" verb=GET {
   }
 
   response = $registros
+  guid = "k8hnWs3DXZs7vd1whbsi3P9UzKc"
 }
