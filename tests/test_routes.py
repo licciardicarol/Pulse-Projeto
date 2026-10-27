@@ -8,6 +8,7 @@ from projetofacul.pages.perfil_page import perfil_page
 from projetofacul.pages.peso_page import peso_page
 from projetofacul.pages.refeicoes_page import refeicoes_page
 from projetofacul.pages.treinos_page import treinos_page
+from projetofacul.pages.sono_page import sono_page
 from projetofacul.pages.placeholder_page import AREAS_EM_CONSTRUCAO
 from projetofacul.projetofacul import app, home, redirect_page
 from projetofacul.states.sessao_state import SessaoState
@@ -54,7 +55,14 @@ def test_perfil_tem_pagina_propria_e_carrega_dados_apos_guarda():
 
 
 def test_placeholders_cobrem_as_demais_rotas_privadas():
-    assert set(AREAS_EM_CONSTRUCAO) == set(ROTAS_PRIVADAS) - {"/perfil", "/refeicoes", "/treinos", "/peso"}
+    assert set(AREAS_EM_CONSTRUCAO) == set(ROTAS_PRIVADAS) - {"/perfil", "/refeicoes", "/treinos", "/peso", "/sono"}
+
+
+def test_sono_tem_pagina_propria_e_carrega_apos_guarda():
+    assert get_routes()["sono"] is sono_page
+    assert get_on_load_names("sono") == ["ensure_session", "start_page"]
+    assert "/sono" not in AREAS_EM_CONSTRUCAO
+    assert '"aria-current":"page"' in str(sono_page())
 
 
 def test_refeicoes_tem_pagina_propria_e_carrega_apos_guarda():

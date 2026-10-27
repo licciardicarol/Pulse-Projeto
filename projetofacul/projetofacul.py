@@ -9,11 +9,13 @@ from projetofacul.pages.peso_page import peso_page
 from projetofacul.pages.refeicoes_page import refeicoes_page
 from projetofacul.pages.treinos_page import treinos_page
 from projetofacul.pages.placeholder_page import AREAS_EM_CONSTRUCAO, build_placeholder_page
+from projetofacul.pages.sono_page import sono_page
 from projetofacul.states.perfil_state import PerfilState
 from projetofacul.states.peso_state import PesoState
 from projetofacul.states.refeicoes_state import RefeicoesState
 from projetofacul.states.sessao_state import SessaoState
 from projetofacul.states.treinos_state import TreinosState
+from projetofacul.states.sono_state import SonoState
 
 
 def home() -> rx.Component:
@@ -69,6 +71,13 @@ app.add_page(
     route="/peso",
     title="Peso | Pulse",
     on_load=[SessaoState.ensure_session, PesoState.start_page],
+)
+
+app.add_page(
+    sono_page,
+    route="/sono",
+    title="Sono | Pulse",
+    on_load=[SessaoState.ensure_session, SonoState.start_page],
 )
 
 for rota, (titulo, descricao) in AREAS_EM_CONSTRUCAO.items():
