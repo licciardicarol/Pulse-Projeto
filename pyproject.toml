@@ -1,0 +1,20 @@
+[project]
+name = "pulse-projeto"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Luna", email = "luna.barrelli@aluno.impacta.edu.br" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "python-dotenv>=1.1.0",
+    "reflex>=0.10.0",
+]
+
+[project.scripts]
+pulse-projeto = "pulse_projeto:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"

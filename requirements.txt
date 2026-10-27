@@ -1,2 +1,6 @@
-
 reflex==0.9.10.post2
+# lê o .env local via env_file do rxconfig
+python-dotenv==1.2.4
+
+# testes (framework definido no AGENTS.md)
+pytest==9.1.1

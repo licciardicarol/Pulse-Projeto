@@ -49,17 +49,17 @@ context: |
   RegistroDePeso.
 
   ## Convenção de nomenclatura
-- Variáveis em português (ex: `peso_usuario`, `treino_atual`)
-- Funções em inglês (ex: `get_user_weight`, `calculate_progress`)
-- Comentários e mensagens de commit em português
-- Entidades e campos de domínio seguem o `domain-model.md`.
+  - Variáveis em português (ex: `peso_usuario`, `treino_atual`)
+  - Funções em inglês (ex: `get_user_weight`, `calculate_progress`)
+  - Comentários e mensagens de commit em português
+  - Entidades e campos de domínio seguem o `domain-model.md`.
 
 # Per-artifact rules (optional)
 rules:
   proposal:
     - Escrever em português
     - Incluir seção "Objetivo" e "Escopo"
-  spec:
+  specs:
     - Incluir critérios de aceite testáveis
     - Especificar os modelos/tabelas SQL envolvidos, quando aplicável
     - Ao lidar com dados de saúde/fitness do usuário, considerar privacidade e integridade dos dados no critério de aceite
