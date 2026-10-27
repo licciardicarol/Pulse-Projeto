@@ -54,6 +54,7 @@ __pycache__/
 # --- Reflex (gerado automaticamente) ---
 .web/
 .states/
+reflex.log
 
 # --- Claude Code (config pessoal, não compartilhada) ---
 .claude/settings.local.json
