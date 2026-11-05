@@ -7,6 +7,7 @@ from projetofacul.logic.navegacao import ROTAS_PRIVADAS
 from projetofacul.pages.perfil_page import perfil_page
 from projetofacul.pages.peso_page import peso_page
 from projetofacul.pages.refeicoes_page import refeicoes_page
+from projetofacul.pages.relatorios_page import relatorios_page
 from projetofacul.pages.treinos_page import treinos_page
 from projetofacul.pages.sono_page import sono_page
 from projetofacul.pages.placeholder_page import AREAS_EM_CONSTRUCAO
@@ -55,7 +56,23 @@ def test_perfil_tem_pagina_propria_e_carrega_dados_apos_guarda():
 
 
 def test_placeholders_cobrem_as_demais_rotas_privadas():
-    assert set(AREAS_EM_CONSTRUCAO) == set(ROTAS_PRIVADAS) - {"/perfil", "/refeicoes", "/treinos", "/peso", "/sono"}
+    # só o Início continua em construção
+    assert set(AREAS_EM_CONSTRUCAO) == {"/inicio"}
+    assert set(AREAS_EM_CONSTRUCAO) == set(ROTAS_PRIVADAS) - {
+        "/perfil",
+        "/refeicoes",
+        "/treinos",
+        "/peso",
+        "/sono",
+        "/relatorios",
+    }
+
+
+def test_relatorios_tem_pagina_propria_e_carrega_apos_guarda():
+    assert get_routes()["relatorios"] is relatorios_page
+    assert get_on_load_names("relatorios") == ["ensure_session", "start_page"]
+    assert "/relatorios" not in AREAS_EM_CONSTRUCAO
+    assert '"aria-current":"page"' in str(relatorios_page())
 
 
 def test_sono_tem_pagina_propria_e_carrega_apos_guarda():
