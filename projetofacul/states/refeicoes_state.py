@@ -1,10 +1,15 @@
-"""Tela de Refeições: listar, registrar e excluir refeições do usuário autenticado."""
+"""Tela de Refeições: listar, registrar, analisar por IA e excluir refeições do usuário autenticado."""
 
 from datetime import date
 from typing import Any
 
 import reflex as rx
 
+from projetofacul.logic.analise_refeicao import (
+    build_analysis_payload,
+    get_analysis_failure_message,
+    parse_analysis,
+)
 from projetofacul.logic.navegacao import ROTA_LOGIN
 from projetofacul.logic.refeicoes import (
     build_meal_view,
@@ -12,12 +17,14 @@ from projetofacul.logic.refeicoes import (
     calculate_daily_totals,
     count_pending_today,
     format_number,
+    is_analyzed,
     parse_date,
     sort_refeicoes,
     suggest_meal_type,
     validate_refeicao,
 )
-from projetofacul.services import xano_client
+from projetofacul.services import gemini_client, xano_client
+from projetofacul.services.gemini_client import GeminiError
 from projetofacul.services.xano_client import XanoError, get_failure_message
 from projetofacul.states.sessao_state import SessaoState
 
@@ -63,6 +70,9 @@ class RefeicoesState(rx.State):
 
     # lista crua do Xano, só no servidor (os totais são recalculados a partir dela)
     _refeicoes_xano: list[dict[str, Any]] = []
+    # ids (texto) das refeições com análise por IA em andamento e última falha de cada uma
+    _analisando: list[str] = []
+    _erros_analise: dict[str, str] = {}
 
     def get_today(self) -> date:
         return parse_date(self.hoje) or date.today()
@@ -76,6 +86,35 @@ class RefeicoesState(rx.State):
         self.total_gorduras = format_number(totais["gorduras"])
         self.pendentes_hoje = count_pending_today(self._refeicoes_xano, hoje)
 
+    def rebuild_meal_views(self):
+        """Monta a lista exibida com o estado da análise de cada refeição."""
+        self.refeicoes = [
+            build_meal_view(
+                refeicao,
+                analisando=str(refeicao.get("id", "")) in self._analisando,
+                erro_analise=self._erros_analise.get(str(refeicao.get("id", "")), ""),
+            )
+            for refeicao in self._refeicoes_xano
+        ]
+
+    def find_meal(self, refeicao_id: str) -> dict[str, Any] | None:
+        return next((r for r in self._refeicoes_xano if str(r.get("id", "")) == refeicao_id), None)
+
+    def start_analysis(self, refeicao_id: str):
+        """Marca a refeição como "Analisando…" e devolve o evento da análise (ou None se não houver o que fazer)."""
+        refeicao = self.find_meal(refeicao_id)
+        # eventos do mesmo usuário rodam em fila: o segundo clique já encontra o id marcado
+        if refeicao is None or is_analyzed(refeicao) or refeicao_id in self._analisando:
+            return None
+        if not (gemini_client.is_configured() and xano_client.has_analysis_secret()):
+            self._erros_analise = {**self._erros_analise, refeicao_id: get_analysis_failure_message("nao_configurado")}
+            self.rebuild_meal_views()
+            return None
+        self._analisando = [*self._analisando, refeicao_id]
+        self._erros_analise = {chave: texto for chave, texto in self._erros_analise.items() if chave != refeicao_id}
+        self.rebuild_meal_views()
+        return RefeicoesState.analyze_meal(refeicao_id)
+
     async def fetch_meals(self) -> bool:
         """Busca a lista no Xano; devolve False quando a sessão expirou."""
         sessao = await self.get_state(SessaoState)
@@ -88,7 +127,7 @@ class RefeicoesState(rx.State):
             self.erro_lista = get_failure_message(erro, MENSAGEM_FALHA_LISTAR)
             return True
         self._refeicoes_xano = sort_refeicoes(refeicoes)
-        self.refeicoes = [build_meal_view(refeicao) for refeicao in self._refeicoes_xano]
+        self.rebuild_meal_views()
         self.erro_lista = ""
         self.update_totals()
         return True
@@ -168,7 +207,7 @@ class RefeicoesState(rx.State):
         sessao = await self.get_state(SessaoState)
         payload = build_refeicao_payload(dados)
         try:
-            await xano_client.create_refeicao(sessao.token, **payload)
+            nova = await xano_client.create_refeicao(sessao.token, **payload)
         except XanoError as erro:
             self.salvando = False
             if erro.tipo == "nao_autorizado":
@@ -178,14 +217,76 @@ class RefeicoesState(rx.State):
             self.erro_geral = get_failure_message(erro, MENSAGEM_FALHA_SALVAR)
             return
 
-        # TODO: integração futura com IA — analisar a refeição recém-criada e preencher
-        # calorias, macros e `analise_ia` (capability `sugestoes`). Nada é estimado aqui.
-
         self.salvando = False
         self.modal_aberto = False
         self.clear_form()
         await self.fetch_meals()
         yield rx.toast.success("Refeição registrada", position="top-right", duration=3000, style=ESTILO_TOAST_SUCESSO)
+
+        # a análise por IA roda em segundo plano: o registro não espera por ela
+        novo_id = str(nova.get("id") or "") if isinstance(nova, dict) else ""
+        if novo_id:
+            yield self.start_analysis(novo_id)
+
+    @rx.event
+    def request_analysis(self, refeicao_id: str):
+        """Botão "Analisar" de uma refeição ainda sem análise."""
+        return self.start_analysis(refeicao_id)
+
+    @rx.event(background=True)
+    async def analyze_meal(self, refeicao_id: str):
+        """Pede a estimativa à IA e grava no Xano, sem segurar o State durante as chamadas de rede."""
+        async with self:
+            if refeicao_id not in self._analisando:
+                return
+            refeicao = self.find_meal(refeicao_id)
+            if refeicao is None:
+                # excluída antes de a análise começar: só libera o id
+                self._analisando = [item for item in self._analisando if item != refeicao_id]
+                return
+            tipo = str(refeicao.get("tipo") or "")
+            descricao = str(refeicao.get("descricao") or "")
+            sessao = await self.get_state(SessaoState)
+            token = sessao.token
+
+        falha = ""
+        atualizada: dict[str, Any] = {}
+        try:
+            resultado = parse_analysis(await gemini_client.analyze_meal(tipo, descricao))
+            if resultado.status == "analisada":
+                payload = build_analysis_payload(resultado.valores)
+                gravada = await xano_client.save_meal_analysis(token, int(refeicao_id), payload)
+                # a resposta do PATCH é a refeição atualizada; o payload garante os valores gravados
+                atualizada = {**payload, **gravada}
+            else:
+                falha = "nao_reconhecido" if resultado.status == "nao_reconhecido" else "falha"
+        except GeminiError as erro:
+            falha = erro.tipo
+        except XanoError as erro:
+            # o limite do Xano não é o da IA: cai na mensagem genérica de falha
+            if erro.tipo == "nao_autorizado":
+                falha = "sessao_expirada"
+            else:
+                falha = "nao_configurado" if erro.tipo == "nao_configurado" else "falha"
+
+        async with self:
+            self._analisando = [item for item in self._analisando if item != refeicao_id]
+            if falha == "sessao_expirada":
+                sessao = await self.get_state(SessaoState)
+                sessao.clear_session()
+                self.rebuild_meal_views()
+                return rx.redirect(ROTA_LOGIN)
+            if falha:
+                # a refeição pode ter sido excluída enquanto a IA respondia
+                if self.find_meal(refeicao_id) is not None:
+                    self._erros_analise = {**self._erros_analise, refeicao_id: get_analysis_failure_message(falha)}
+            else:
+                self._refeicoes_xano = [
+                    {**item, **atualizada, "id": item.get("id")} if str(item.get("id", "")) == refeicao_id else item
+                    for item in self._refeicoes_xano
+                ]
+                self.update_totals()
+            self.rebuild_meal_views()
 
     @rx.event
     def ask_delete(self, refeicao_id: str):

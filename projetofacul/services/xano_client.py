@@ -127,7 +127,7 @@ async def list_refeicoes(token: str) -> list[dict[str, Any]]:
 
 
 async def create_refeicao(token: str, data_refeicao: str, tipo: str, descricao: str) -> dict[str, Any]:
-    # só estes três campos: o dono vem do token e os valores nutricionais, da IA (futura)
+    # só estes três campos: o dono vem do token e os valores nutricionais, só da análise por IA (save_meal_analysis)
     return await send_request(
         "POST",
         "refeicoes/me",
@@ -138,6 +138,29 @@ async def create_refeicao(token: str, data_refeicao: str, tipo: str, descricao: 
 
 async def delete_refeicao(token: str, refeicao_id: int) -> dict[str, Any]:
     return await send_request("DELETE", f"refeicoes/me/{int(refeicao_id)}", token=token)
+
+
+def get_analysis_secret() -> str:
+    """Chave de serviço que só o backend do Pulse conhece (mesmo valor no Xano)."""
+    chave = os.getenv("PULSE_ANALISE_SECRET", "").strip()
+    if not chave:
+        raise XanoError("nao_configurado")
+    return chave
+
+
+def has_analysis_secret() -> bool:
+    return bool(os.getenv("PULSE_ANALISE_SECRET", "").strip())
+
+
+CAMPOS_ANALISE = ("calorias", "proteinas", "carboidratos", "gorduras", "analise_ia")
+
+
+async def save_meal_analysis(token: str, refeicao_id: int, valores: dict[str, Any]) -> dict[str, Any]:
+    """Grava a análise por IA validada; o Xano confere o dono pelo token e a chave de serviço."""
+    corpo = {campo: valores[campo] for campo in CAMPOS_ANALISE}
+    corpo["chave_servico"] = get_analysis_secret()
+    resposta = await send_request("PATCH", f"refeicoes/me/{int(refeicao_id)}/analise", token=token, corpo=corpo)
+    return resposta if isinstance(resposta, dict) else {}
 
 
 async def list_treinos(token: str) -> list[dict[str, Any]]:

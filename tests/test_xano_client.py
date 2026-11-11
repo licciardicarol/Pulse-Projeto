@@ -247,3 +247,54 @@ def test_excluir_sono_de_outro_usuario_vira_nao_encontrado(requisicoes):
 
     assert erro.value.tipo == "nao_encontrado"
     assert registradas[0].method == "DELETE"
+
+
+VALORES_ANALISE = {
+    "calorias": 275.4,
+    "proteinas": 16.0,
+    "carboidratos": 29.9,
+    "gorduras": 10.6,
+    "analise_ia": "2 ovos (~140 kcal), 1 pão francês (~135 kcal)",
+}
+
+
+def test_gravar_analise_envia_bearer_valores_e_chave_de_servico(requisicoes, monkeypatch):
+    registradas, respostas = requisicoes
+    monkeypatch.setenv("PULSE_ANALISE_SECRET", "segredo-de-teste")
+    respostas["refeicoes/me/7/analise"] = httpx.Response(200, json={"id": 7, **VALORES_ANALISE})
+
+    refeicao = asyncio.run(xano_client.save_meal_analysis("tok-123", 7, {**VALORES_ANALISE, "user_id": 99}))
+
+    assert refeicao["id"] == 7
+    assert registradas[0].method == "PATCH"
+    assert str(registradas[0].url) == f"{URL_BASE}/refeicoes/me/7/analise"
+    assert registradas[0].headers["Authorization"] == "Bearer tok-123"
+    # só os 5 campos da análise + a chave; nada de dono, data, tipo ou descrição
+    assert json.loads(registradas[0].content) == {**VALORES_ANALISE, "chave_servico": "segredo-de-teste"}
+
+
+def test_gravar_analise_sem_chave_de_servico_nao_faz_chamada(requisicoes, monkeypatch):
+    registradas, _ = requisicoes
+    monkeypatch.delenv("PULSE_ANALISE_SECRET", raising=False)
+
+    with pytest.raises(XanoError) as erro:
+        asyncio.run(xano_client.save_meal_analysis("tok-123", 7, VALORES_ANALISE))
+
+    assert erro.value.tipo == "nao_configurado"
+    assert registradas == []
+
+
+@pytest.mark.parametrize(
+    ("status", "tipo"),
+    [(401, "nao_autorizado"), (403, "acesso_negado"), (404, "nao_encontrado"), (429, "limite_requisicoes")],
+)
+def test_gravar_analise_mapeia_recusas_do_xano(requisicoes, monkeypatch, status, tipo):
+    _, respostas = requisicoes
+    monkeypatch.setenv("PULSE_ANALISE_SECRET", "segredo-de-teste")
+    respostas["refeicoes/me/7/analise"] = httpx.Response(status, json={"message": "Access denied."})
+
+    with pytest.raises(XanoError) as erro:
+        asyncio.run(xano_client.save_meal_analysis("tok-123", 7, VALORES_ANALISE))
+
+    assert erro.value.tipo == tipo
+    assert "segredo-de-teste" not in str(erro.value)

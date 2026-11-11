@@ -1,7 +1,8 @@
 """Regras de negócio das refeições: validação, tipo sugerido, ordenação e totais do dia.
 
 Nenhuma função aqui estima valores nutricionais: calorias e macros só existem
-quando a análise por IA (integração futura) preencher `analise_ia`.
+quando a análise por IA (`logic/analise_refeicao.py`) for validada e gravada,
+preenchendo `analise_ia`.
 """
 
 from datetime import date
@@ -117,9 +118,17 @@ def format_date_br(valor: str) -> str:
     return data.strftime("%d/%m/%Y") if data else ""
 
 
-def build_meal_view(refeicao: dict[str, Any]) -> dict[str, str]:
+def get_meal_state(refeicao: dict[str, Any], analisando: bool) -> str:
+    """"analisada" (tem `analise_ia`), "analisando" (IA em andamento) ou "pendente"."""
+    if is_analyzed(refeicao):
+        return "analisada"
+    return "analisando" if analisando else "pendente"
+
+
+def build_meal_view(refeicao: dict[str, Any], analisando: bool = False, erro_analise: str = "") -> dict[str, str]:
     """Dados prontos para exibir um item da lista (tudo texto, para o `rx.foreach`)."""
-    analisada = is_analyzed(refeicao)
+    estado = get_meal_state(refeicao, analisando)
+    analisada = estado == "analisada"
     macros = ""
     if analisada:
         macros = (
@@ -135,4 +144,8 @@ def build_meal_view(refeicao: dict[str, Any]) -> dict[str, str]:
         "analisada": "sim" if analisada else "",
         "calorias": f"{format_number(get_number(refeicao, 'calorias'))} kcal" if analisada else "",
         "macros": macros,
+        "estado": estado,
+        # resumo da IA só existe em refeição analisada; a falha só aparece enquanto pendente
+        "resumo": str(refeicao.get("analise_ia") or "").strip() if analisada else "",
+        "erro_analise": erro_analise if estado == "pendente" else "",
     }

@@ -9,6 +9,9 @@ from styles.theme import apply_theme_tokens
 
 ROTA = "/refeicoes"
 
+SUBTITULO = "Descreva o que você comeu. A IA estima calorias e macronutrientes automaticamente."
+AVISO_IA = "Valores estimados por IA a partir da sua descrição. Não substituem a orientação de um nutricionista."
+
 REFEICOES_PAGE_CSS = apply_theme_tokens("""
 .ref-page { width: min(1200px, 100%); margin: 0 auto; }
 .ref-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
@@ -77,6 +80,31 @@ REFEICOES_PAGE_CSS = apply_theme_tokens("""
   display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; min-height: 24px; padding: 0 10px;
   border-radius: 999px; color: __TEXT_SECONDARY__; background: rgba(255,255,255,.05); font-size: 12px; font-weight: 600;
 }
+.ref-pending-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.ref-pending-row .ref-pending-badge { margin-top: 0; }
+.ref-analyze {
+  min-height: 44px; display: inline-flex; align-items: center; gap: 7px; padding: 0 14px;
+  border: 1px solid rgba(43,140,255,.45); border-radius: 10px; color: #BFDAFF; background: rgba(43,140,255,.10);
+  font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: background 160ms ease, transform 160ms ease;
+}
+.ref-analyze:hover { background: rgba(43,140,255,.2); }
+.ref-analyze:active { transform: scale(.98); }
+.ref-analyze:focus-visible { outline: 3px solid rgba(43,140,255,.65); outline-offset: 2px; }
+.ref-analysis-error { margin: 8px 0 0; color: #F0A1A9; font-size: 13px; line-height: 1.45; }
+.ref-analysis-error:empty { display: none; }
+.ref-analyzing { color: #BFDAFF; background: rgba(43,140,255,.12); }
+.ref-spinner {
+  width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(191,218,255,.35); border-top-color: #BFDAFF;
+  animation: ref-spin 800ms linear infinite;
+}
+.ref-ai-row { display: grid; gap: 6px; margin-top: 10px; }
+.ref-ai-badge {
+  justify-self: start; display: inline-flex; align-items: center; gap: 6px; min-height: 24px; padding: 0 10px;
+  border-radius: 999px; color: #BFDAFF; background: rgba(43,140,255,.12); font-size: 12px; font-weight: 700;
+}
+.ref-summary { margin: 0; color: __TEXT_SECONDARY__; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.ref-ai-note { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0 0; color: __TEXT_SECONDARY__; font-size: 13px; line-height: 1.5; }
+.ref-ai-note svg { flex: none; margin-top: 2px; color: __PRIMARY__; }
 
 .ref-empty {
   display: grid; justify-items: center; gap: 10px; padding: 44px 24px; border: 1.5px dashed rgba(255,255,255,.16);
@@ -131,6 +159,7 @@ textarea.ref-input { min-height: 120px; padding: 12px; resize: vertical; line-he
 @keyframes ref-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes ref-pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes ref-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes ref-spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 900px) {
   .ref-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -148,8 +177,8 @@ textarea.ref-input { min-height: 120px; padding: 12px; resize: vertical; line-he
   .ref-dialog-footer .ref-button { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ref-item, .ref-dialog, .ref-alert, .ref-skeleton { animation: none !important; }
-  .ref-total:hover, .ref-item:hover { transform: none; }
+  .ref-item, .ref-dialog, .ref-alert, .ref-skeleton, .ref-spinner { animation: none !important; }
+  .ref-total:hover, .ref-item:hover, .ref-analyze:active { transform: none; }
 }
 """)
 
@@ -162,10 +191,7 @@ def page_header() -> rx.Component:
                 rx.el.h1("Refeições", class_name="ref-title"),
                 class_name="ref-header-row",
             ),
-            rx.el.p(
-                "Descreva o que você comeu. Em breve a IA estimará calorias e macronutrientes automaticamente.",
-                class_name="ref-subtitle",
-            ),
+            rx.el.p(SUBTITULO, class_name="ref-subtitle"),
         ),
         rx.dialog.trigger(
             rx.el.button(
@@ -206,12 +232,58 @@ def daily_totals() -> rx.Component:
             ),
             rx.fragment(),
         ),
+        # aviso fixo: os valores são conteúdo gerado por IA
+        rx.el.p(rx.icon(tag="info", size=15, aria_hidden="true"), AVISO_IA, class_name="ref-ai-note"),
         aria_label="Totais de hoje",
     )
 
 
+def analyzed_details(refeicao) -> rx.Component:
+    return rx.fragment(
+        rx.el.p(refeicao["macros"], class_name="ref-macros"),
+        rx.box(
+            rx.el.span(rx.icon(tag="sparkles", size=13, aria_hidden="true"), "Estimado por IA", class_name="ref-ai-badge"),
+            # texto puro: o Reflex escapa o conteúdo vindo da IA
+            rx.el.p(refeicao["resumo"], class_name="ref-summary"),
+            class_name="ref-ai-row",
+        ),
+    )
+
+
+def analyzing_status() -> rx.Component:
+    return rx.el.span(
+        rx.box(class_name="ref-spinner", aria_hidden="true"),
+        "Analisando…",
+        role="status",
+        class_name="ref-pending-badge ref-analyzing",
+    )
+
+
+def pending_analysis(refeicao) -> rx.Component:
+    return rx.fragment(
+        rx.box(
+            rx.el.span(
+                rx.icon(tag="hourglass", size=13, aria_hidden="true"),
+                "Aguardando análise",
+                class_name="ref-pending-badge",
+            ),
+            rx.el.button(
+                rx.icon(tag="sparkles", size=16, aria_hidden="true"),
+                "Analisar",
+                type="button",
+                aria_label=f"Analisar refeição: {refeicao['tipo']} de {refeicao['data']}",
+                title="Pede à IA a estimativa de calorias e macronutrientes desta refeição",
+                on_click=RefeicoesState.request_analysis(refeicao["id"]),
+                class_name="ref-analyze",
+            ),
+            class_name="ref-pending-row",
+        ),
+        rx.el.p(refeicao["erro_analise"], aria_live="polite", class_name="ref-analysis-error"),
+    )
+
+
 def meal_item(refeicao) -> rx.Component:
-    analisada = refeicao["analisada"] != ""
+    analisada = refeicao["estado"] == "analisada"
     return rx.el.li(
         rx.box(
             rx.el.span(refeicao["tipo"], class_name="ref-chip"),
@@ -228,14 +300,11 @@ def meal_item(refeicao) -> rx.Component:
             class_name="ref-item-top",
         ),
         rx.el.p(refeicao["descricao"], class_name="ref-description"),
-        rx.cond(
-            analisada,
-            rx.el.p(refeicao["macros"], class_name="ref-macros"),
-            rx.el.span(
-                rx.icon(tag="hourglass", size=13, aria_hidden="true"),
-                "Aguardando análise",
-                class_name="ref-pending-badge",
-            ),
+        rx.match(
+            refeicao["estado"],
+            ("analisada", analyzed_details(refeicao)),
+            ("analisando", analyzing_status()),
+            pending_analysis(refeicao),
         ),
         class_name="ref-item",
     )

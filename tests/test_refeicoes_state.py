@@ -232,3 +232,253 @@ def test_sessao_expirada_ao_listar_vai_para_login(estados, xano):
 
     assert sessao.token == ""
     assert any("/login" in str(evento) for evento in eventos)
+
+
+# ---------- análise por IA ----------
+
+from projetofacul.logic.analise_refeicao import (  # noqa: E402
+    MENSAGEM_FALHA_ANALISE,
+    MENSAGEM_IA_INDISPONIVEL,
+    MENSAGEM_LIMITE_IA,
+    MENSAGEM_NAO_RECONHECIDO,
+)
+from projetofacul.services import gemini_client  # noqa: E402
+from projetofacul.services.gemini_client import GeminiError  # noqa: E402
+
+RESPOSTA_IA = {
+    "reconhecido": True,
+    "resumo": "2 ovos (~140 kcal), 1 pão francês (~135 kcal)",
+    "calorias": 275.36,
+    "proteinas": 16.04,
+    "carboidratos": 29.9,
+    "gorduras": 10.55,
+}
+
+
+@pytest.fixture
+def ia(monkeypatch, xano):
+    """Gemini e gravação da análise simulados; nada sai para a rede."""
+    controle = {"resposta": dict(RESPOSTA_IA), "falha_ia": None, "falha_gravar": None, "pedidos": [], "gravacoes": []}
+
+    async def analyze_meal(tipo, descricao):
+        controle["pedidos"].append((tipo, descricao))
+        if controle["falha_ia"]:
+            raise controle["falha_ia"]
+        return controle["resposta"]
+
+    async def save_meal_analysis(token, refeicao_id, valores):
+        controle["gravacoes"].append((token, refeicao_id, valores))
+        if controle["falha_gravar"]:
+            raise controle["falha_gravar"]
+        for item in xano["lista"]:
+            if item["id"] == refeicao_id:
+                item.update(valores)
+                return dict(item)
+        raise XanoError("nao_encontrado")
+
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-de-teste")
+    monkeypatch.setenv("PULSE_ANALISE_SECRET", "segredo-de-teste")
+    monkeypatch.setattr(gemini_client, "analyze_meal", analyze_meal)
+    monkeypatch.setattr(xano_client, "save_meal_analysis", save_meal_analysis)
+    return controle
+
+
+def pendente(id_=1, dia="2026-10-21", descricao="2 ovos mexidos e 1 pão francês") -> dict:
+    return {"id": id_, "created_at": id_, "data_refeicao": dia, "tipo": "Café da manhã", "descricao": descricao,
+            "calorias": 0, "proteinas": 0, "carboidratos": 0, "gorduras": 0, "analise_ia": ""}
+
+
+def load(refeicoes, xano, *lista):
+    xano["lista"] = [dict(item) for item in lista]
+    run(RefeicoesState.load_meals.fn(refeicoes, RELOGIO))
+
+
+def analyze(refeicoes, refeicao_id="1") -> list:
+    return run(RefeicoesState.analyze_meal.fn(refeicoes, refeicao_id))
+
+
+def chamou_analise(eventos: list) -> bool:
+    return any("analyze_meal" in str(evento) for evento in eventos)
+
+
+def test_salvar_dispara_analise_em_segundo_plano_e_mostra_analisando(estados, xano, ia):
+    refeicoes, _ = estados
+    refeicoes.hoje = "2026-10-21"
+    fill(refeicoes, descricao="2 ovos mexidos e 1 pão francês")
+
+    eventos = run(RefeicoesState.save_meal.fn(refeicoes))
+
+    assert has_toast(eventos, "Refeição registrada")
+    assert chamou_analise(eventos)
+    assert refeicoes.modal_aberto is False
+    assert refeicoes.refeicoes[0]["estado"] == "analisando"
+    # o registro não esperou pela IA
+    assert ia["pedidos"] == []
+
+
+def test_analise_valida_grava_e_atualiza_totais_sem_nova_listagem(estados, xano, ia):
+    refeicoes, _ = estados
+    load(refeicoes, xano, pendente())
+    listagens = len([c for c in xano["chamadas"] if c[0] == "list"])
+
+    assert chamou_analise([RefeicoesState.request_analysis.fn(refeicoes, "1")])
+    analyze(refeicoes)
+
+    assert ia["pedidos"] == [("Café da manhã", "2 ovos mexidos e 1 pão francês")]
+    assert ia["gravacoes"] == [("tok-123", 1, {"calorias": 275.4, "proteinas": 16.0, "carboidratos": 29.9,
+                                               "gorduras": 10.6, "analise_ia": RESPOSTA_IA["resumo"]})]
+    assert len([c for c in xano["chamadas"] if c[0] == "list"]) == listagens
+    item = refeicoes.refeicoes[0]
+    assert item["estado"] == "analisada"
+    assert item["calorias"] == "275,4 kcal"
+    assert item["resumo"] == RESPOSTA_IA["resumo"]
+    assert refeicoes.total_calorias == "275,4"
+    assert refeicoes.total_proteinas == "16"
+    assert refeicoes.total_gorduras == "10,6"
+    assert refeicoes.pendentes_hoje == 0
+
+
+@pytest.mark.parametrize(
+    ("ajuste", "mensagem", "gravou"),
+    [
+        ({"falha_ia": GeminiError("limite_requisicoes")}, MENSAGEM_LIMITE_IA, False),
+        ({"falha_ia": GeminiError("falha")}, MENSAGEM_FALHA_ANALISE, False),
+        ({"falha_ia": GeminiError("nao_configurado")}, MENSAGEM_IA_INDISPONIVEL, False),
+        ({"resposta": {**RESPOSTA_IA, "calorias": 12000}}, MENSAGEM_FALHA_ANALISE, False),
+        ({"resposta": "isto não é um objeto"}, MENSAGEM_FALHA_ANALISE, False),
+        ({"resposta": {"reconhecido": False, "resumo": "", "calorias": 0, "proteinas": 0, "carboidratos": 0,
+                       "gorduras": 0}}, MENSAGEM_NAO_RECONHECIDO, False),
+        ({"falha_gravar": XanoError("acesso_negado")}, MENSAGEM_FALHA_ANALISE, True),
+        ({"falha_gravar": XanoError("limite_requisicoes")}, MENSAGEM_FALHA_ANALISE, True),
+    ],
+)
+def test_falhas_da_analise_deixam_mensagem_sem_valores(estados, xano, ia, ajuste, mensagem, gravou):
+    refeicoes, _ = estados
+    load(refeicoes, xano, pendente())
+    ia.update(ajuste)
+
+    RefeicoesState.request_analysis.fn(refeicoes, "1")
+    analyze(refeicoes)
+
+    item = refeicoes.refeicoes[0]
+    assert item["estado"] == "pendente"
+    assert item["erro_analise"] == mensagem
+    assert item["calorias"] == ""
+    assert refeicoes.total_calorias == "0"
+    assert refeicoes.pendentes_hoje == 1
+    assert bool(ia["gravacoes"]) is gravou
+
+
+def test_tentar_de_novo_limpa_a_falha_anterior(estados, xano, ia):
+    refeicoes, _ = estados
+    load(refeicoes, xano, pendente())
+    ia["falha_ia"] = GeminiError("falha")
+    RefeicoesState.request_analysis.fn(refeicoes, "1")
+    analyze(refeicoes)
+
+    ia["falha_ia"] = None
+    RefeicoesState.request_analysis.fn(refeicoes, "1")
+    assert refeicoes.refeicoes[0]["estado"] == "analisando"
+    assert refeicoes.refeicoes[0]["erro_analise"] == ""
+    analyze(refeicoes)
+
+    assert refeicoes.refeicoes[0]["estado"] == "analisada"
+
+
+def test_clique_duplo_chama_a_ia_uma_vez(estados, xano, ia):
+    refeicoes, _ = estados
+    load(refeicoes, xano, pendente())
+
+    primeiro = RefeicoesState.request_analysis.fn(refeicoes, "1")
+    segundo = RefeicoesState.request_analysis.fn(refeicoes, "1")
+    analyze(refeicoes)
+    # um evento de análise repetido que chegue depois não encontra mais o id em andamento
+    analyze(refeicoes)
+
+    assert chamou_analise([primeiro])
+    assert segundo is None
+    assert len(ia["pedidos"]) == 1
+
+
+def test_refeicao_ja_analisada_nao_vai_para_a_ia(estados, xano, ia):
+    refeicoes, _ = estados
+    load(refeicoes, xano, {**pendente(), "analise_ia": "2 ovos", "calorias": 140})
+
+    assert RefeicoesState.request_analysis.fn(refeicoes, "1") is None
+    assert ia["pedidos"] == []
+
+
+def test_sem_configuracao_registra_mas_nao_chama_a_ia(estados, xano, ia, monkeypatch):
+    refeicoes, _ = estados
+    monkeypatch.delenv("GEMINI_API_KEY")
+    refeicoes.hoje = "2026-10-21"
+    fill(refeicoes)
+
+    eventos = run(RefeicoesState.save_meal.fn(refeicoes))
+
+    assert has_toast(eventos, "Refeição registrada")
+    assert not chamou_analise(eventos)
+    assert ia["pedidos"] == []
+    assert refeicoes.refeicoes[0]["estado"] == "pendente"
+    assert refeicoes.refeicoes[0]["erro_analise"] == MENSAGEM_IA_INDISPONIVEL
+
+
+def test_sem_chave_de_servico_tambem_nao_chama_a_ia(estados, xano, ia, monkeypatch):
+    refeicoes, _ = estados
+    monkeypatch.delenv("PULSE_ANALISE_SECRET")
+    load(refeicoes, xano, pendente())
+
+    assert RefeicoesState.request_analysis.fn(refeicoes, "1") is None
+    assert ia["pedidos"] == []
+    assert refeicoes.refeicoes[0]["erro_analise"] == MENSAGEM_IA_INDISPONIVEL
+
+
+def test_sessao_expirada_ao_gravar_vai_para_login(estados, xano, ia):
+    refeicoes, sessao = estados
+    load(refeicoes, xano, pendente())
+    ia["falha_gravar"] = XanoError("nao_autorizado")
+
+    RefeicoesState.request_analysis.fn(refeicoes, "1")
+    eventos = analyze(refeicoes)
+
+    assert sessao.token == ""
+    assert any("/login" in str(evento) for evento in eventos)
+
+
+def test_falha_ao_registrar_nao_chama_a_ia(estados, xano, ia):
+    refeicoes, _ = estados
+    refeicoes.hoje = "2026-10-21"
+    refeicoes.modal_aberto = True
+    xano["falhas"]["create"] = XanoError("indisponivel")
+    fill(refeicoes)
+
+    eventos = run(RefeicoesState.save_meal.fn(refeicoes))
+
+    assert not chamou_analise(eventos)
+    assert ia["pedidos"] == []
+    assert refeicoes.modal_aberto is True
+
+
+def test_abrir_a_pagina_nao_chama_a_ia(estados, xano, ia):
+    refeicoes, _ = estados
+
+    load(refeicoes, xano, pendente(1), pendente(2, descricao="arroz e feijão"))
+
+    assert ia["pedidos"] == []
+    assert [item["estado"] for item in refeicoes.refeicoes] == ["pendente", "pendente"]
+
+
+def test_refeicao_excluida_durante_a_analise_nao_deixa_rastro(estados, xano, ia):
+    refeicoes, _ = estados
+    load(refeicoes, xano, pendente())
+    ia["falha_gravar"] = XanoError("nao_encontrado")
+    RefeicoesState.request_analysis.fn(refeicoes, "1")
+
+    # o usuário exclui a refeição enquanto a IA responde
+    xano["lista"] = []
+    run(RefeicoesState.load_meals.fn(refeicoes, RELOGIO))
+    analyze(refeicoes)
+
+    assert refeicoes.refeicoes == []
+    assert refeicoes._erros_analise == {}
+    assert refeicoes._analisando == []

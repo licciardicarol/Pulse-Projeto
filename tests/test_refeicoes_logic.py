@@ -110,7 +110,7 @@ def test_formatacao_brasileira():
 def test_item_aguardando_analise_nao_mostra_valores():
     item = build_meal_view(refeicao(7, "2026-10-21", 1, calorias=0, descricao="Ovos mexidos", tipo="Café da manhã"))
     assert item == {"id": "7", "tipo": "Café da manhã", "data": "21/10/2026", "descricao": "Ovos mexidos",
-                    "analisada": "", "calorias": "", "macros": ""}
+                    "analisada": "", "calorias": "", "macros": "", "estado": "pendente", "resumo": "", "erro_analise": ""}
 
 
 def test_item_analisado_mostra_calorias_e_macros():
@@ -118,3 +118,22 @@ def test_item_analisado_mostra_calorias_e_macros():
     assert item["analisada"] == "sim"
     assert item["calorias"] == "520 kcal"
     assert item["macros"] == "Proteínas 35,5 g · Carboidratos 60 g · Gorduras 12 g"
+
+
+def test_item_analisado_traz_resumo_da_ia_e_estado():
+    item = build_meal_view(refeicao(8, "2026-10-21", 1, analise="  2 ovos (~140 kcal)  ", calorias=140), erro_analise="falhou antes")
+    assert item["estado"] == "analisada"
+    assert item["resumo"] == "2 ovos (~140 kcal)"
+    # falha antiga some quando a análise existe
+    assert item["erro_analise"] == ""
+
+
+def test_item_em_analise_e_item_pendente_com_falha():
+    analisando = build_meal_view(refeicao(9, "2026-10-21", 1), analisando=True, erro_analise="x")
+    assert analisando["estado"] == "analisando"
+    assert analisando["erro_analise"] == "" and analisando["calorias"] == ""
+
+    pendente = build_meal_view(refeicao(9, "2026-10-21", 1), erro_analise="Não foi possível analisar esta refeição agora.")
+    assert pendente["estado"] == "pendente"
+    assert pendente["erro_analise"] == "Não foi possível analisar esta refeição agora."
+    assert pendente["resumo"] == ""
