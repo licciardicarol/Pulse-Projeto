@@ -1,5 +1,6 @@
 """Tela de Refeições: listar, registrar, analisar por IA e excluir refeições do usuário autenticado."""
 
+import logging
 from datetime import date
 from typing import Any
 
@@ -27,6 +28,8 @@ from projetofacul.services import gemini_client, xano_client
 from projetofacul.services.gemini_client import GeminiError
 from projetofacul.services.xano_client import XanoError, get_failure_message
 from projetofacul.states.sessao_state import SessaoState
+
+logger = logging.getLogger(__name__)
 
 MENSAGEM_FALHA_LISTAR = "Não foi possível carregar suas refeições agora."
 MENSAGEM_FALHA_SALVAR = "Não foi possível registrar a refeição agora. Tente novamente em instantes."
@@ -107,6 +110,11 @@ class RefeicoesState(rx.State):
         if refeicao is None or is_analyzed(refeicao) or refeicao_id in self._analisando:
             return None
         if not (gemini_client.is_configured() and xano_client.has_analysis_secret()):
+            # só o NOME das variáveis vai para o log; nunca os valores
+            faltando = [nome for nome, ok in (("GEMINI_API_KEY", gemini_client.is_configured()),
+                                              ("PULSE_ANALISE_SECRET", xano_client.has_analysis_secret())) if not ok]
+            logger.warning("Análise de refeição desativada: defina %s no .env e reinicie o reflex run",
+                           " e ".join(faltando))
             self._erros_analise = {**self._erros_analise, refeicao_id: get_analysis_failure_message("nao_configurado")}
             self.rebuild_meal_views()
             return None

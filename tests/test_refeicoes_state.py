@@ -482,3 +482,16 @@ def test_refeicao_excluida_durante_a_analise_nao_deixa_rastro(estados, xano, ia)
     assert refeicoes.refeicoes == []
     assert refeicoes._erros_analise == {}
     assert refeicoes._analisando == []
+
+
+def test_sem_configuracao_avisa_no_log_so_o_nome_da_variavel(estados, xano, ia, monkeypatch, caplog):
+    refeicoes, _ = estados
+    monkeypatch.delenv("GEMINI_API_KEY")
+    load(refeicoes, xano, pendente())
+
+    with caplog.at_level("WARNING"):
+        RefeicoesState.request_analysis.fn(refeicoes, "1")
+
+    assert "GEMINI_API_KEY" in caplog.text
+    assert "PULSE_ANALISE_SECRET" not in caplog.text
+    assert "segredo-de-teste" not in caplog.text
