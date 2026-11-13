@@ -115,7 +115,6 @@ def test_limite_de_requisicoes(gemini):
     [
         httpx.ReadTimeout("demorou"),
         httpx.ConnectError("sem rede"),
-        httpx.Response(500, json={"error": {}}),
         httpx.Response(403, json={"error": {"status": "PERMISSION_DENIED"}}),
         httpx.Response(200, text="isto não é json"),
         httpx.Response(200, json={"promptFeedback": {"blockReason": "SAFETY"}}),
@@ -162,3 +161,37 @@ def test_logs_nao_mostram_refeicao_nem_chave(gemini, caplog):
     assert "HTTP 500" in caplog.text
     assert DESCRICAO not in caplog.text
     assert CHAVE not in caplog.text
+
+
+@pytest.mark.parametrize("status", [500, 502, 503, 504])
+def test_servidor_sobrecarregado(gemini, status):
+    _, respostas = gemini
+    respostas.append(httpx.Response(status, json={"error": {"status": "UNAVAILABLE"}}))
+
+    with pytest.raises(GeminiError) as erro:
+        analisar()
+
+    assert erro.value.tipo == "sobrecarregado"
+
+
+def test_geracao_generica_usa_instrucao_prompt_esquema_e_limite(gemini, caplog):
+    registradas, respostas = gemini
+    esquema = {"type": "object", "properties": {"ok": {"type": "boolean"}}, "required": ["ok"]}
+    respostas.append(httpx.Response(200, json=resposta_gemini(json.dumps({"ok": True}))))
+    respostas.append(httpx.Response(503, json={"error": {}}))
+
+    resultado = asyncio.run(gemini_client.generate_json("instrução X", "dados Y", esquema, "teste", max_tokens=300))
+
+    assert resultado == {"ok": True}
+    corpo = json.loads(registradas[0].content)
+    assert corpo["systemInstruction"]["parts"][0]["text"] == "instrução X"
+    assert corpo["contents"][0]["parts"][0]["text"] == "dados Y"
+    assert corpo["generationConfig"]["responseJsonSchema"] == esquema
+    assert corpo["generationConfig"]["maxOutputTokens"] == 300
+
+    # o log diz a finalidade e o status, nunca o conteúdo pedido
+    with caplog.at_level(logging.WARNING, logger="projetofacul.services.gemini_client"):
+        with pytest.raises(GeminiError):
+            asyncio.run(gemini_client.generate_json("instrução X", "dados Y", esquema, "teste"))
+    assert "teste" in caplog.text and "HTTP 503" in caplog.text
+    assert "dados Y" not in caplog.text

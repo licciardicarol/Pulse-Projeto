@@ -56,13 +56,14 @@ async def send_request(
     caminho: str,
     token: str = "",
     corpo: dict[str, Any] | None = None,
+    parametros: dict[str, str] | None = None,
 ) -> Any:
     url = f"{get_base_url()}/{caminho.lstrip('/')}"
     cabecalhos = {"Authorization": f"Bearer {token}"} if token else {}
 
     try:
         async with create_http_client() as cliente:
-            resposta = await cliente.request(metodo, url, json=corpo, headers=cabecalhos)
+            resposta = await cliente.request(metodo, url, json=corpo, headers=cabecalhos, params=parametros)
     except httpx.HTTPError:
         raise XanoError("indisponivel") from None
 
@@ -160,6 +161,34 @@ async def save_meal_analysis(token: str, refeicao_id: int, valores: dict[str, An
     corpo = {campo: valores[campo] for campo in CAMPOS_ANALISE}
     corpo["chave_servico"] = get_analysis_secret()
     resposta = await send_request("PATCH", f"refeicoes/me/{int(refeicao_id)}/analise", token=token, corpo=corpo)
+    return resposta if isinstance(resposta, dict) else {}
+
+
+CAMPOS_RECOMENDACAO = (
+    "data_recomendacao",
+    "titulo",
+    "texto",
+    "recuperacao",
+    "intensidade",
+    "motivo_treino",
+    "alimentacao",
+    "modelo",
+)
+
+
+async def get_today_recommendation(token: str, data_recomendacao: str) -> dict[str, Any] | None:
+    """Recomendação mais recente do usuário para o dia (AAAA-MM-DD); None se ainda não houver."""
+    resposta = await send_request(
+        "GET", "recomendacoes/me/hoje", token=token, parametros={"data_recomendacao": data_recomendacao}
+    )
+    return resposta if isinstance(resposta, dict) and resposta else None
+
+
+async def save_recommendation(token: str, valores: dict[str, Any]) -> dict[str, Any]:
+    """Guarda a recomendação validada; o Xano confere a chave de serviço e usa o dono do token."""
+    corpo = {campo: valores[campo] for campo in CAMPOS_RECOMENDACAO}
+    corpo["chave_servico"] = get_analysis_secret()
+    resposta = await send_request("POST", "recomendacoes/me", token=token, corpo=corpo)
     return resposta if isinstance(resposta, dict) else {}
 
 

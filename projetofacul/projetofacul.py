@@ -4,6 +4,7 @@ import reflex as rx
 
 from projetofacul.auth_page import AuthState, pagina_autenticacao
 from projetofacul.landing_page import landing_page
+from projetofacul.pages.inicio_page import inicio_page
 from projetofacul.pages.perfil_page import perfil_page
 from projetofacul.pages.peso_page import peso_page
 from projetofacul.pages.refeicoes_page import refeicoes_page
@@ -11,6 +12,7 @@ from projetofacul.pages.relatorios_page import relatorios_page
 from projetofacul.pages.treinos_page import treinos_page
 from projetofacul.pages.placeholder_page import AREAS_EM_CONSTRUCAO, build_placeholder_page
 from projetofacul.pages.sono_page import sono_page
+from projetofacul.states.inicio_state import InicioState
 from projetofacul.states.perfil_state import PerfilState
 from projetofacul.states.peso_state import PesoState
 from projetofacul.states.refeicoes_state import RefeicoesState
@@ -52,6 +54,14 @@ app.add_page(
     route="/perfil",
     title="Perfil | Pulse",
     on_load=[SessaoState.ensure_session, PerfilState.load_profile],
+)
+
+# recomendação do dia: busca a de hoje e, se faltar, gera em segundo plano
+app.add_page(
+    inicio_page,
+    route="/inicio",
+    title="Início | Pulse",
+    on_load=[SessaoState.ensure_session, InicioState.start_page],
 )
 
 app.add_page(

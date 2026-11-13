@@ -6,10 +6,9 @@ import reflex as rx
 
 from projetofacul.components.app_shell import app_shell
 
-# rota -> (título, texto); sem dados nem formulários, só o aviso de construção
-AREAS_EM_CONSTRUCAO: dict[str, tuple[str, str]] = {
-    "/inicio": ("Início", "Seu resumo do dia vai aparecer aqui."),
-}
+# rota -> (título, texto); sem dados nem formulários, só o aviso de construção.
+# Vazio: todas as rotas privadas já têm tela própria (o Início mostra a recomendação do dia).
+AREAS_EM_CONSTRUCAO: dict[str, tuple[str, str]] = {}
 
 
 def build_placeholder_page(rota: str, titulo: str, descricao: str) -> Callable[[], rx.Component]:

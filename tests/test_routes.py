@@ -4,6 +4,7 @@ import reflex as rx
 
 from projetofacul.components.navbar import ITENS_NAVBAR, navbar
 from projetofacul.logic.navegacao import ROTAS_PRIVADAS
+from projetofacul.pages.inicio_page import inicio_page
 from projetofacul.pages.perfil_page import perfil_page
 from projetofacul.pages.peso_page import peso_page
 from projetofacul.pages.refeicoes_page import refeicoes_page
@@ -55,17 +56,22 @@ def test_perfil_tem_pagina_propria_e_carrega_dados_apos_guarda():
     assert "/perfil" not in AREAS_EM_CONSTRUCAO
 
 
-def test_placeholders_cobrem_as_demais_rotas_privadas():
-    # só o Início continua em construção
-    assert set(AREAS_EM_CONSTRUCAO) == {"/inicio"}
-    assert set(AREAS_EM_CONSTRUCAO) == set(ROTAS_PRIVADAS) - {
-        "/perfil",
-        "/refeicoes",
-        "/treinos",
-        "/peso",
-        "/sono",
-        "/relatorios",
-    }
+def test_nenhuma_rota_privada_esta_em_construcao():
+    assert AREAS_EM_CONSTRUCAO == {}
+    routes = get_routes()
+    for rota in ROTAS_PRIVADAS:
+        pagina = routes[rota.strip("/")]
+        assert pagina.__name__ != "placeholder_page", rota
+        assert escapar("em construção") not in str(pagina()), rota
+
+
+def test_inicio_tem_pagina_propria_e_carrega_apos_guarda():
+    assert get_routes()["inicio"] is inicio_page
+    assert get_on_load_names("inicio") == ["ensure_session", "start_page"]
+    assert app._unevaluated_pages["inicio"].title == "Início | Pulse"
+    pagina = str(inicio_page())
+    assert '"aria-current":"page"' in pagina
+    assert escapar("Recomendação de hoje") in pagina
 
 
 def test_relatorios_tem_pagina_propria_e_carrega_apos_guarda():

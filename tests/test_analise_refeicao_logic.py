@@ -171,3 +171,9 @@ def test_mensagens_de_falha_por_tipo():
     assert MENSAGEM_IA_INDISPONIVEL == "Análise por IA indisponível no momento."
     assert MENSAGEM_FALHA_ANALISE == "Não foi possível analisar esta refeição agora."
     assert MENSAGEM_NAO_RECONHECIDO == "Não reconhecemos alimentos nesta descrição. Exclua e registre de novo com mais detalhes."
+
+
+def test_sobrecarga_da_ia_mantem_a_mensagem_generica_de_refeicao():
+    from projetofacul.logic.analise_refeicao import MENSAGEM_FALHA_ANALISE, get_analysis_failure_message
+
+    assert get_analysis_failure_message("sobrecarregado") == MENSAGEM_FALHA_ANALISE

@@ -1,9 +1,11 @@
-"""Cliente HTTP do Google Gemini para a análise nutricional das refeições.
+"""Cliente HTTP do Google Gemini: geração de JSON estruturado para o backend do Pulse.
 
 Usado só pelo backend do Reflex: a chave fica no ambiente do servidor e nunca vai
-para o navegador. A IA recebe apenas o tipo e a descrição da refeição. Erros viram
-`GeminiError` com tipo fechado ("nao_configurado", "limite_requisicoes" ou "falha"),
-e os logs registram só o tipo e o status HTTP, nunca a refeição nem a resposta.
+para o navegador. `generate_json` é o ponto único de chamada; `analyze_meal` (análise
+nutricional) e a recomendação do dia montam só a instrução, o prompt e o esquema.
+Erros viram `GeminiError` com tipo fechado ("nao_configurado", "limite_requisicoes",
+"sobrecarregado" ou "falha"), e os logs registram só a finalidade, o tipo e o status
+HTTP, nunca o pedido nem a resposta.
 """
 
 import json
@@ -21,6 +23,8 @@ MODELO_PADRAO = "gemini-3.5-flash-lite"
 TEMPO_LIMITE_SEGUNDOS = 20.0
 MAXIMO_TOKENS_RESPOSTA = 1024
 TEMPERATURA = 0.2
+# servidor do Google sobrecarregado ou fora do ar: costuma passar em instantes
+STATUS_SOBRECARREGADO = (500, 502, 503, 504)
 
 logger = logging.getLogger(__name__)
 
@@ -50,27 +54,29 @@ def create_http_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=TEMPO_LIMITE_SEGUNDOS)
 
 
-def build_request_body(tipo: str, descricao: str) -> dict[str, Any]:
+def build_request_body(
+    instrucao: str, prompt: str, esquema: dict[str, Any], max_tokens: int = MAXIMO_TOKENS_RESPOSTA
+) -> dict[str, Any]:
     return {
-        "systemInstruction": {"parts": [{"text": INSTRUCAO_SISTEMA}]},
-        "contents": [{"role": "user", "parts": [{"text": build_analysis_prompt(tipo, descricao)}]}],
+        "systemInstruction": {"parts": [{"text": instrucao}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
             "responseMimeType": "application/json",
-            "responseJsonSchema": ESQUEMA_RESPOSTA,
+            "responseJsonSchema": esquema,
             "temperature": TEMPERATURA,
-            "maxOutputTokens": MAXIMO_TOKENS_RESPOSTA,
+            "maxOutputTokens": max_tokens,
         },
     }
 
 
-def extract_json(resposta: Any) -> Any:
+def extract_json(resposta: Any, finalidade: str = "pedido") -> Any:
     """Tira o JSON do texto da resposta; pedido bloqueado, corte ou texto inválido viram falha."""
     if not isinstance(resposta, dict):
         raise GeminiError("falha")
 
     feedback = resposta.get("promptFeedback")
     if isinstance(feedback, dict) and feedback.get("blockReason"):
-        logger.warning("Gemini bloqueou o pedido da análise de refeição")
+        logger.warning("Gemini bloqueou o pedido (%s)", finalidade)
         raise GeminiError("falha")
 
     candidatos = resposta.get("candidates")
@@ -79,7 +85,9 @@ def extract_json(resposta: Any) -> Any:
 
     candidato = candidatos[0]
     if candidato.get("finishReason") != "STOP":
-        logger.warning("Gemini terminou a análise sem concluir (finishReason=%s)", candidato.get("finishReason"))
+        logger.warning(
+            "Gemini terminou sem concluir (%s, finishReason=%s)", finalidade, candidato.get("finishReason")
+        )
         raise GeminiError("falha")
 
     conteudo = candidato.get("content")
@@ -99,8 +107,14 @@ def extract_json(resposta: Any) -> Any:
         raise GeminiError("falha") from None
 
 
-async def analyze_meal(tipo: str, descricao: str) -> Any:
-    """Pede a estimativa nutricional da refeição e devolve o JSON decodificado (ainda não validado)."""
+async def generate_json(
+    instrucao: str,
+    prompt: str,
+    esquema: dict[str, Any],
+    finalidade: str,
+    max_tokens: int = MAXIMO_TOKENS_RESPOSTA,
+) -> Any:
+    """Pede uma resposta em JSON no formato de `esquema` e devolve o JSON decodificado (ainda não validado)."""
     chave = get_api_key()
     if not chave:
         raise GeminiError("nao_configurado")
@@ -110,22 +124,32 @@ async def analyze_meal(tipo: str, descricao: str) -> Any:
         async with create_http_client() as cliente:
             resposta = await cliente.post(
                 url,
-                json=build_request_body(tipo, descricao),
+                json=build_request_body(instrucao, prompt, esquema, max_tokens),
                 headers={"x-goog-api-key": chave},
             )
     except httpx.HTTPError as erro:
-        logger.warning("Gemini indisponível na análise de refeição (%s)", type(erro).__name__)
+        logger.warning("Gemini indisponível (%s, %s)", finalidade, type(erro).__name__)
         raise GeminiError("falha") from None
 
     if resposta.status_code == 429:
-        logger.warning("Gemini recusou a análise de refeição: limite de requisições (HTTP 429)")
+        logger.warning("Gemini recusou o pedido (%s): limite de requisições (HTTP 429)", finalidade)
         raise GeminiError("limite_requisicoes")
+    if resposta.status_code in STATUS_SOBRECARREGADO:
+        logger.warning("Gemini sobrecarregado (%s, HTTP %s)", finalidade, resposta.status_code)
+        raise GeminiError("sobrecarregado")
     if resposta.status_code >= 400:
-        logger.warning("Gemini recusou a análise de refeição (HTTP %s)", resposta.status_code)
+        logger.warning("Gemini recusou o pedido (%s, HTTP %s)", finalidade, resposta.status_code)
         raise GeminiError("falha")
 
     try:
         dados = resposta.json()
     except ValueError:
         raise GeminiError("falha") from None
-    return extract_json(dados)
+    return extract_json(dados, finalidade)
+
+
+async def analyze_meal(tipo: str, descricao: str) -> Any:
+    """Pede a estimativa nutricional da refeição e devolve o JSON decodificado (ainda não validado)."""
+    return await generate_json(
+        INSTRUCAO_SISTEMA, build_analysis_prompt(tipo, descricao), ESQUEMA_RESPOSTA, "análise de refeição"
+    )

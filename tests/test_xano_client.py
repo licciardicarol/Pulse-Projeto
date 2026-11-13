@@ -298,3 +298,83 @@ def test_gravar_analise_mapeia_recusas_do_xano(requisicoes, monkeypatch, status,
 
     assert erro.value.tipo == tipo
     assert "segredo-de-teste" not in str(erro.value)
+
+
+# ---------- recomendação do dia ----------
+
+VALORES_RECOMENDACAO = {
+    "data_recomendacao": "2026-11-12",
+    "titulo": "Dia de acelerar",
+    "texto": "Você dormiu bem e comeu bem ontem.",
+    "recuperacao": 82,
+    "intensidade": "Intenso",
+    "motivo_treino": "Sono de 8h e treino leve ontem.",
+    "alimentacao": "Proteína dentro do habitual ontem.",
+    "modelo": "gemini-3.5-flash-lite",
+}
+
+
+def test_buscar_recomendacao_de_hoje_envia_data_e_bearer(requisicoes):
+    registradas, respostas = requisicoes
+    respostas["recomendacoes/me/hoje"] = httpx.Response(200, json={"id": 3, **VALORES_RECOMENDACAO})
+
+    recomendacao = asyncio.run(xano_client.get_today_recommendation("tok-123", "2026-11-12"))
+
+    assert recomendacao["id"] == 3
+    assert registradas[0].method == "GET"
+    assert str(registradas[0].url) == f"{URL_BASE}/recomendacoes/me/hoje?data_recomendacao=2026-11-12"
+    assert registradas[0].headers["Authorization"] == "Bearer tok-123"
+
+
+@pytest.mark.parametrize("corpo", [b"null", b"{}", b"[]"])
+def test_sem_recomendacao_hoje_devolve_none(requisicoes, corpo):
+    # o Xano responde `null` quando a consulta "single" não encontra nada
+    _, respostas = requisicoes
+    respostas["recomendacoes/me/hoje"] = httpx.Response(200, content=corpo, headers={"content-type": "application/json"})
+
+    assert asyncio.run(xano_client.get_today_recommendation("tok-123", "2026-11-12")) is None
+
+
+def test_guardar_recomendacao_envia_so_campos_permitidos_e_chave(requisicoes, monkeypatch):
+    registradas, respostas = requisicoes
+    monkeypatch.setenv("PULSE_ANALISE_SECRET", "segredo-de-teste")
+    respostas["recomendacoes/me"] = httpx.Response(200, json={"id": 4, **VALORES_RECOMENDACAO})
+
+    salva = asyncio.run(xano_client.save_recommendation("tok-123", {**VALORES_RECOMENDACAO, "user_id": 99}))
+
+    assert salva["id"] == 4
+    assert registradas[0].method == "POST"
+    assert registradas[0].headers["Authorization"] == "Bearer tok-123"
+    # nada de dono vindo do app: só os campos da recomendação + a chave de serviço
+    assert json.loads(registradas[0].content) == {**VALORES_RECOMENDACAO, "chave_servico": "segredo-de-teste"}
+
+
+def test_guardar_recomendacao_sem_chave_nao_faz_chamada(requisicoes, monkeypatch):
+    registradas, _ = requisicoes
+    monkeypatch.delenv("PULSE_ANALISE_SECRET", raising=False)
+
+    with pytest.raises(XanoError) as erro:
+        asyncio.run(xano_client.save_recommendation("tok-123", VALORES_RECOMENDACAO))
+
+    assert erro.value.tipo == "nao_configurado"
+    assert registradas == []
+
+
+@pytest.mark.parametrize(
+    ("status", "tipo"),
+    [(401, "nao_autorizado"), (403, "acesso_negado"), (429, "limite_requisicoes")],
+)
+def test_recomendacao_mapeia_recusas_do_xano(requisicoes, monkeypatch, status, tipo):
+    _, respostas = requisicoes
+    monkeypatch.setenv("PULSE_ANALISE_SECRET", "segredo-de-teste")
+    respostas["recomendacoes/me"] = httpx.Response(status, json={"message": "Access denied."})
+    respostas["recomendacoes/me/hoje"] = httpx.Response(status, json={"message": "Access denied."})
+
+    for chamada in (
+        xano_client.save_recommendation("tok-123", VALORES_RECOMENDACAO),
+        xano_client.get_today_recommendation("tok-123", "2026-11-12"),
+    ):
+        with pytest.raises(XanoError) as erro:
+            asyncio.run(chamada)
+        assert erro.value.tipo == tipo
+        assert "segredo-de-teste" not in str(erro.value)
