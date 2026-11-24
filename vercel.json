@@ -12,10 +12,12 @@
   },
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": { "service": "app" }
+    },
+    {
       "source": "/(.*)",
-      "destination": {
-        "service": "app"
-      }
+      "destination": { "service": "reflexlock" }
     }
   ]
 }
